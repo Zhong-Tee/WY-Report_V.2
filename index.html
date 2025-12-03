@@ -1,83 +1,668 @@
-import Papa from 'papaparse';
-import { SalesData, BranchGroup, RawCsvRow } from '../types';
 
-// Helper to determine branch group based on rules
-const getBranchGroup = (branchName: string): BranchGroup => {
-  const normalized = branchName.toLowerCase();
-  if (normalized.includes('moshi') || normalized.includes('ms ')) {
-    return BranchGroup.MOSHI;
-  }
-  if (normalized.includes('b2s')) {
-    return BranchGroup.B2S;
-  }
-  return BranchGroup.WANYEN; // Default as per requirement 7.3
-};
-
-// Helper to parse Thai Buddhist Era dates (e.g., 1/11/2568 10:04)
-const parseThaiDate = (dateStr: string): Date | null => {
-  try {
-    if (!dateStr) return null;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Professional Sales Report</title>
     
-    // Split date and time
-    const [dPart, tPart] = dateStr.split(' ');
-    const [day, month, yearBE] = dPart.split('/').map(Number);
-    
-    // Convert Buddhist Era to Christian Era (subtract 543)
-    const yearAD = yearBE - 543;
-    
-    // Construct a date string compatible with standard parsing
-    // Using simple construction to avoid timezone issues for report dates
-    const dateObj = new Date(yearAD, month - 1, day);
-    
-    // Add time if exists
-    if (tPart) {
-        const [hour, minute] = tPart.split(':').map(Number);
-        dateObj.setHours(hour || 0);
-        dateObj.setMinutes(minute || 0);
-    }
-
-    // Check if date is valid using native method instead of date-fns isValid
-    return !isNaN(dateObj.getTime()) ? dateObj : null;
-  } catch (e) {
-    console.error("Error parsing date:", dateStr, e);
-    return null;
-  }
-};
-
-export const parseCSV = (file: File): Promise<SalesData[]> => {
-  return new Promise((resolve, reject) => {
-    Papa.parse<RawCsvRow>(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const parsedData: SalesData[] = results.data
-          .filter(row => row['วันที่'] && row['ยอดรวม']) // Filter empty rows or footer totals
-          .map((row, index) => {
-            const date = parseThaiDate(row['วันที่']);
-            const quantity = parseFloat(row['จำนวน']?.replace(/,/g, '') || '0');
-            const totalSales = parseFloat(row['ยอดรวม']?.replace(/,/g, '') || '0');
-            const branch = row['branch'] || 'Unknown';
-
-            if (!date) return null;
-
-            return {
-              id: `row-${index}`,
-              date: date,
-              product: row['สินค้า'] || 'Unknown',
-              quantity: quantity,
-              totalSales: totalSales,
-              paymentMethod: row['payment'] || 'Unknown',
-              branch: branch,
-              branchGroup: getBranchGroup(branch)
-            };
-          })
-          .filter((item): item is SalesData => item !== null);
-
-        resolve(parsedData);
-      },
-      error: (error) => {
-        reject(error);
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: '#2563eb',
+              secondary: '#64748b',
+              moshi: '#ec4899',
+              b2s: '#eab308',
+              wanyen: '#3b82f6'
+            },
+            fontFamily: {
+              sans: ['Inter', 'system-ui', 'sans-serif']
+            }
+          }
+        }
       }
-    });
-  });
-};
+    </script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Import Map -->
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "recharts": "https://esm.sh/recharts@2.12.3?external=react,react-dom",
+        "lucide-react": "https://esm.sh/lucide-react@0.344.0?external=react",
+        "date-fns": "https://esm.sh/date-fns@3.3.1",
+        "papaparse": "https://esm.sh/papaparse@5.4.1"
+      }
+    }
+    </script>
+
+    <style>
+      body { font-family: 'Inter', sans-serif; }
+      /* Custom Scrollbar for tables */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #f1f5f9;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+    </style>
+</head>
+<body class="bg-gray-50 text-slate-900 min-h-screen">
+    <div id="root">
+        <!-- Initial Loading State -->
+        <div class="flex items-center justify-center h-screen flex-col gap-4">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <p class="text-slate-500">Loading Application...</p>
+        </div>
+    </div>
+
+    <!-- Error Handler -->
+    <script>
+      window.onerror = function(message, source, lineno, colno, error) {
+        const root = document.getElementById('root');
+        root.innerHTML = `
+          <div class="flex items-center justify-center h-screen p-4">
+            <div class="bg-white p-8 rounded-xl shadow-xl max-w-lg w-full border border-red-100">
+              <h2 class="text-2xl font-bold text-red-600 mb-4">Application Error</h2>
+              <p class="text-slate-600 mb-4">Something went wrong while loading the application.</p>
+              <div class="bg-slate-100 p-4 rounded text-xs font-mono text-red-500 overflow-auto">
+                ${message}
+              </div>
+              <button onclick="window.location.reload()" class="mt-6 w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition">
+                Reload Page
+              </button>
+            </div>
+          </div>
+        `;
+        console.error(error);
+      };
+    </script>
+
+    <script type="text/babel" data-type="module">
+      import React, { useState, useMemo, useEffect } from 'react';
+      import ReactDOM from 'react-dom/client';
+      import { 
+        BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
+        LineChart, Line, PieChart, Pie, Cell, AreaChart, Area 
+      } from 'recharts';
+      import { format, isValid } from 'date-fns';
+      import { 
+        UploadCloud, FileSpreadsheet, Calendar, Filter, DollarSign, 
+        ShoppingCart, MapPin, TrendingUp, Package, PieChart as PieIcon,
+        BarChart3, Upload
+      } from 'lucide-react';
+      import Papa from 'papaparse';
+
+      // --- Constants ---
+      const BranchGroup = {
+        MOSHI: 'Moshi',
+        B2S: 'B2S',
+        WANYEN: 'Wanyen',
+        UNKNOWN: 'Unknown'
+      };
+
+      const COLORS = {
+        [BranchGroup.MOSHI]: '#ec4899', // Pink
+        [BranchGroup.B2S]: '#eab308',   // Yellow
+        [BranchGroup.WANYEN]: '#3b82f6', // Blue
+        [BranchGroup.UNKNOWN]: '#94a3b8' // Gray
+      };
+
+      // --- Utils ---
+      const formatCurrency = (val) => 
+        new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', minimumFractionDigits: 0 }).format(val);
+
+      const formatNumber = (val) => 
+        new Intl.NumberFormat('th-TH').format(val);
+
+      const getBranchGroup = (branchName) => {
+        if (!branchName) return BranchGroup.WANYEN; // Default as per requirement 7.3 if not B2S/Moshi
+        const normalized = branchName.toLowerCase();
+        if (normalized.includes('moshi') || normalized.includes('ms ')) {
+          return BranchGroup.MOSHI;
+        }
+        if (normalized.includes('b2s')) {
+          return BranchGroup.B2S;
+        }
+        return BranchGroup.WANYEN;
+      };
+
+      const parseThaiDate = (dateStr) => {
+        try {
+          if (!dateStr || typeof dateStr !== 'string') return null;
+          
+          // Handle "1/11/2568 10:04" format
+          const [dPart, tPart] = dateStr.trim().split(' ');
+          if (!dPart) return null;
+          
+          const parts = dPart.split('/');
+          if (parts.length !== 3) return null;
+          
+          const day = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10);
+          const yearBE = parseInt(parts[2], 10);
+          
+          // Convert Buddhist Era to Christian Era
+          // Heuristic: If year > 2400, assume BE
+          const yearAD = yearBE > 2400 ? yearBE - 543 : yearBE;
+          
+          const dateObj = new Date(yearAD, month - 1, day);
+          
+          if (tPart) {
+              const [hour, minute] = tPart.split(':').map(Number);
+              if (!isNaN(hour) && !isNaN(minute)) {
+                dateObj.setHours(hour);
+                dateObj.setMinutes(minute);
+              }
+          }
+
+          return !isNaN(dateObj.getTime()) ? dateObj : null;
+        } catch (e) {
+          console.warn("Date parse error:", dateStr);
+          return null;
+        }
+      };
+
+      const processCSV = (file) => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            try {
+              const text = event.target.result;
+              const lines = text.split('\n');
+              
+              // Find header row (contains "วันที่" and "ยอดรวม")
+              let headerIdx = -1;
+              for(let i=0; i<lines.length && i<20; i++) {
+                if(lines[i].includes('วันที่') && lines[i].includes('ยอดรวม')) {
+                  headerIdx = i;
+                  break;
+                }
+              }
+
+              if (headerIdx === -1) throw new Error("Could not find header row with 'วันที่' and 'ยอดรวม'");
+
+              // Clean data from header downwards
+              const csvData = lines.slice(headerIdx).join('\n');
+              
+              Papa.parse(csvData, {
+                header: true,
+                skipEmptyLines: true,
+                complete: (results) => {
+                  const data = results.data
+                    .filter(row => row['วันที่'] && row['ยอดรวม'] && row['branch']) // Filter valid rows
+                    .map((row, idx) => {
+                      const date = parseThaiDate(row['วันที่']);
+                      if (!date) return null;
+
+                      // Clean numbers (remove commas)
+                      const quantity = parseFloat(row['จำนวน']?.replace(/,/g, '') || '0');
+                      const total = parseFloat(row['ยอดรวม']?.replace(/,/g, '') || '0');
+                      const branch = row['branch']?.trim() || 'Unknown';
+
+                      return {
+                        id: idx,
+                        date,
+                        product: row['สินค้า'] || 'Unknown',
+                        quantity,
+                        total,
+                        branch,
+                        payment: row['payment'],
+                        group: getBranchGroup(branch)
+                      };
+                    })
+                    .filter(item => item !== null);
+                  
+                  resolve(data);
+                },
+                error: (err) => reject(err)
+              });
+            } catch (err) {
+              reject(err);
+            }
+          };
+          reader.readAsText(file);
+        });
+      };
+
+      // --- Components ---
+
+      const KPICard = ({ title, value, subtext, icon, color }) => (
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-start justify-between hover:shadow-md transition-shadow duration-200">
+          <div>
+            <p className="text-sm font-medium text-slate-500 mb-1">{title}</p>
+            <h3 className="text-2xl font-bold text-slate-800">{value}</h3>
+            {subtext && <p className="text-xs text-slate-400 mt-2">{subtext}</p>}
+          </div>
+          <div className={`p-3 rounded-lg ${color} text-white shadow-sm`}>
+            {icon}
+          </div>
+        </div>
+      );
+
+      const Dashboard = ({ data, dateRange }) => {
+        const [viewMode, setViewMode] = useState('daily'); // 'daily' | 'monthly'
+
+        // Filter data by date range
+        const filteredData = useMemo(() => {
+          if (!dateRange.start && !dateRange.end) return data;
+          const start = dateRange.start ? dateRange.start.getTime() : -Infinity;
+          const end = dateRange.end ? dateRange.end.getTime() : Infinity;
+          
+          return data.filter(d => {
+            const t = d.date.getTime();
+            return t >= start && t <= end;
+          });
+        }, [data, dateRange]);
+
+        // Calculate Stats
+        const stats = useMemo(() => {
+          const totalRevenue = filteredData.reduce((s, i) => s + i.total, 0);
+          const totalQty = filteredData.reduce((s, i) => s + i.quantity, 0);
+          const totalTx = filteredData.length;
+          const avgPrice = totalQty > 0 ? totalRevenue / totalQty : 0;
+          
+          const groups = {
+            [BranchGroup.MOSHI]: { count: 0, sales: 0, branches: new Set() },
+            [BranchGroup.B2S]: { count: 0, sales: 0, branches: new Set() },
+            [BranchGroup.WANYEN]: { count: 0, sales: 0, branches: new Set() }
+          };
+
+          filteredData.forEach(d => {
+            if(groups[d.group]) {
+              groups[d.group].count++;
+              groups[d.group].sales += d.total;
+              groups[d.group].branches.add(d.branch);
+            }
+          });
+
+          return { totalRevenue, totalQty, totalTx, avgPrice, groups };
+        }, [filteredData]);
+
+        // Chart Data: Timeline
+        const chartData = useMemo(() => {
+          const map = {};
+          filteredData.forEach(d => {
+            let key;
+            let sortTime;
+            if (viewMode === 'monthly') {
+              key = format(d.date, 'MMM yyyy');
+              sortTime = new Date(d.date.getFullYear(), d.date.getMonth(), 1).getTime();
+            } else {
+              key = format(d.date, 'dd/MM/yyyy');
+              const day = new Date(d.date);
+              day.setHours(0,0,0,0);
+              sortTime = day.getTime();
+            }
+
+            if (!map[key]) map[key] = { name: key, sales: 0, sortTime };
+            map[key].sales += d.total;
+          });
+          return Object.values(map).sort((a,b) => a.sortTime - b.sortTime);
+        }, [filteredData, viewMode]);
+
+        // Ranking: Branches
+        const topBranches = useMemo(() => {
+          const map = {};
+          filteredData.forEach(d => {
+            if (!map[d.branch]) map[d.branch] = { name: d.branch, sales: 0, group: d.group };
+            map[d.branch].sales += d.total;
+          });
+          return Object.values(map).sort((a,b) => b.sales - a.sales).slice(0, 10);
+        }, [filteredData]);
+
+        // Ranking: Products
+        const topProducts = useMemo(() => {
+          const map = {};
+          filteredData.forEach(d => {
+            if (!map[d.product]) map[d.product] = { name: d.product, qty: 0, sales: 0 };
+            map[d.product].qty += d.quantity;
+            map[d.product].sales += d.total;
+          });
+          // Sort by Sales (Requirement 4: Best selling, usually implies revenue, but can toggle)
+          // Let's sort by revenue
+          return Object.values(map).sort((a,b) => b.sales - a.sales).slice(0, 10);
+        }, [filteredData]);
+
+        // Pie Data
+        const pieData = Object.keys(stats.groups).map(g => ({
+          name: g,
+          value: stats.groups[g].sales
+        })).filter(d => d.value > 0);
+
+        return (
+          <div className="space-y-6 pb-20 animate-fade-in">
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <KPICard 
+                title="Total Revenue" 
+                value={formatCurrency(stats.totalRevenue)}
+                subtext={`From ${formatNumber(stats.totalTx)} transactions`}
+                icon={<DollarSign size={24} />}
+                color="bg-emerald-500"
+              />
+              <KPICard 
+                title="Total Sheets Sold" 
+                value={formatNumber(stats.totalQty)}
+                subtext="Units sold"
+                icon={<Package size={24} />}
+                color="bg-blue-500"
+              />
+              <KPICard 
+                title="Avg. Price / Sheet" 
+                value={formatCurrency(stats.avgPrice)}
+                subtext="Revenue / Quantity"
+                icon={<TrendingUp size={24} />}
+                color="bg-violet-500"
+              />
+              <KPICard 
+                title="Active Branches" 
+                value={Object.values(stats.groups).reduce((acc, g) => acc + g.branches.size, 0)}
+                subtext="Total unique locations"
+                icon={<MapPin size={24} />}
+                color="bg-rose-500"
+              />
+            </div>
+
+            {/* Main Charts Area */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Sales Trend */}
+              <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <BarChart3 size={20} className="text-slate-400"/> Sales Over Time
+                  </h3>
+                  <div className="flex bg-slate-100 p-1 rounded-lg text-xs font-medium">
+                    <button 
+                      onClick={() => setViewMode('daily')}
+                      className={`px-3 py-1 rounded-md transition ${viewMode==='daily' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}
+                    >Daily</button>
+                    <button 
+                      onClick={() => setViewMode('monthly')}
+                      className={`px-3 py-1 rounded-md transition ${viewMode==='monthly' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}
+                    >Monthly</button>
+                  </div>
+                </div>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
+                      <XAxis 
+                        dataKey="name" 
+                        tick={{fontSize: 12, fill: '#64748b'}} 
+                        axisLine={false} 
+                        tickLine={false} 
+                        dy={10}
+                      />
+                      <YAxis 
+                        tickFormatter={(val) => `${val/1000}k`} 
+                        tick={{fontSize: 12, fill: '#64748b'}} 
+                        axisLine={false} 
+                        tickLine={false}
+                      />
+                      <Tooltip formatter={(value) => formatCurrency(value)} contentStyle={{borderRadius: '8px', border:'none', boxShadow:'0 4px 6px -1px rgb(0 0 0 / 0.1)'}}/>
+                      <Area type="monotone" dataKey="sales" stroke="#3b82f6" fillOpacity={1} fill="url(#colorSales)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Group Distribution */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
+                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  <PieIcon size={20} className="text-slate-400"/> Sales by Group
+                </h3>
+                <div className="h-48 flex-shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%" cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[entry.name]} strokeWidth={0} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(val) => formatCurrency(val)} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex-1 overflow-y-auto mt-4 pr-1 custom-scrollbar">
+                  {Object.entries(stats.groups).map(([name, val]) => (
+                    <div key={name} className="flex justify-between items-center p-2 rounded hover:bg-slate-50 text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{background: COLORS[name]}}></div>
+                        <div>
+                          <p className="font-semibold text-slate-700">{name}</p>
+                          <p className="text-xs text-slate-400">{val.branches.size} branches</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-slate-700">{formatCurrency(val.sales)}</p>
+                        <p className="text-xs text-slate-400">{formatNumber(val.count)} orders</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Rankings */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Top Branches */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                <h3 className="text-lg font-bold text-slate-800 mb-4">Top 10 Branches (Revenue)</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 text-slate-500 font-medium">
+                      <tr>
+                        <th className="px-4 py-2 rounded-l-lg">Rank</th>
+                        <th className="px-4 py-2">Branch</th>
+                        <th className="px-4 py-2">Group</th>
+                        <th className="px-4 py-2 text-right rounded-r-lg">Sales</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topBranches.map((b, i) => (
+                        <tr key={i} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
+                          <td className="px-4 py-3 text-slate-400 font-mono">#{i+1}</td>
+                          <td className="px-4 py-3 font-medium text-slate-700 truncate max-w-[150px]" title={b.name}>{b.name}</td>
+                          <td className="px-4 py-3">
+                            <span className="text-[10px] px-2 py-1 rounded-full text-white font-bold" style={{backgroundColor: COLORS[b.group]}}>
+                              {b.group}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-emerald-600">{formatCurrency(b.sales)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Top Products */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                <h3 className="text-lg font-bold text-slate-800 mb-4">Top 10 Products (Revenue)</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 text-slate-500 font-medium">
+                      <tr>
+                        <th className="px-4 py-2 rounded-l-lg">Rank</th>
+                        <th className="px-4 py-2">Product</th>
+                        <th className="px-4 py-2 text-right">Qty</th>
+                        <th className="px-4 py-2 text-right rounded-r-lg">Sales</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topProducts.map((p, i) => (
+                        <tr key={i} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
+                          <td className="px-4 py-3 text-slate-400 font-mono">#{i+1}</td>
+                          <td className="px-4 py-3 font-medium text-slate-700">{p.name}</td>
+                          <td className="px-4 py-3 text-right text-blue-600 font-semibold">{formatNumber(p.qty)}</td>
+                          <td className="px-4 py-3 text-right text-slate-500">{formatCurrency(p.sales)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const App = () => {
+        const [data, setData] = useState(null);
+        const [loading, setLoading] = useState(false);
+        const [error, setError] = useState(null);
+        const [dateRange, setDateRange] = useState({ start: null, end: null });
+
+        const handleFileUpload = async (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+
+          setLoading(true);
+          setError(null);
+          try {
+            const parsed = await processCSV(file);
+            if (parsed.length === 0) throw new Error("No valid data found. Check CSV format.");
+            
+            // Set Date Range
+            const times = parsed.map(d => d.date.getTime()).sort((a,b) => a-b);
+            setDateRange({
+              start: new Date(times[0]),
+              end: new Date(times[times.length-1])
+            });
+            setData(parsed);
+          } catch (err) {
+            console.error(err);
+            setError(err.message || "Failed to process file");
+          } finally {
+            setLoading(false);
+          }
+        };
+
+        const handleDateChange = (type, val) => {
+          const d = val ? new Date(val) : null;
+          if (d) {
+            if (type === 'start') d.setHours(0,0,0,0);
+            if (type === 'end') d.setHours(23,59,59,999);
+          }
+          setDateRange(prev => ({...prev, [type]: d}));
+        };
+
+        return (
+          <div className="min-h-screen pb-10">
+            {/* Nav */}
+            <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
+              <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-indigo-600">
+                  <div className="p-2 bg-indigo-600 text-white rounded-lg shadow-sm">
+                    <FileSpreadsheet size={20} />
+                  </div>
+                  <span className="font-bold text-lg tracking-tight text-slate-800">Sales Insight Pro</span>
+                </div>
+                
+                {data && (
+                  <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg border border-slate-200">
+                    <div className="px-3 py-1 flex items-center gap-2 text-sm text-slate-600 border-r border-slate-200 pr-4">
+                      <Calendar size={14} />
+                      <span className="hidden sm:inline">Range:</span>
+                    </div>
+                    <input 
+                      type="date" 
+                      className="bg-transparent text-sm text-slate-700 outline-none w-28 cursor-pointer"
+                      onChange={(e) => handleDateChange('start', e.target.value)}
+                      defaultValue={dateRange.start ? format(dateRange.start, 'yyyy-MM-dd') : ''}
+                    />
+                    <span className="text-slate-400">-</span>
+                    <input 
+                      type="date" 
+                      className="bg-transparent text-sm text-slate-700 outline-none w-28 cursor-pointer"
+                      onChange={(e) => handleDateChange('end', e.target.value)}
+                      defaultValue={dateRange.end ? format(dateRange.end, 'yyyy-MM-dd') : ''}
+                    />
+                  </div>
+                )}
+              </div>
+            </nav>
+
+            <main className="max-w-7xl mx-auto px-4 mt-8">
+              {!data ? (
+                <div className="max-w-lg mx-auto mt-20 animate-fade-in-up">
+                  <div className="bg-white p-10 rounded-2xl shadow-xl border border-slate-100 text-center relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
+                    
+                    <div className="mb-6 flex justify-center">
+                      <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center shadow-inner">
+                        <UploadCloud size={40} />
+                      </div>
+                    </div>
+                    
+                    <h2 className="text-2xl font-bold text-slate-800 mb-3">Upload Report CSV</h2>
+                    <p className="text-slate-500 mb-8 text-sm leading-relaxed">
+                      Please upload your sales report file (.csv). <br/>
+                      System will automatically group Moshi, B2S, and Wanyen branches.
+                    </p>
+
+                    <label className="block relative group cursor-pointer">
+                      <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg blur opacity-30 group-hover:opacity-100 transition duration-200"></div>
+                      <div className="relative flex items-center justify-center gap-3 bg-white border-2 border-indigo-50 hover:border-indigo-100 rounded-lg p-4 transition-all">
+                        <span className="font-semibold text-indigo-600 group-hover:text-indigo-700">Choose CSV File</span>
+                        <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
+                      </div>
+                    </label>
+
+                    {loading && (
+                      <div className="mt-6 flex flex-col items-center gap-2">
+                        <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-xs font-medium text-indigo-600">Processing...</span>
+                      </div>
+                    )}
+
+                    {error && (
+                      <div className="mt-6 p-3 bg-red-50 text-red-600 text-xs rounded border border-red-100">
+                        {error}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <Dashboard data={data} dateRange={dateRange} />
+              )}
+            </main>
+          </div>
+        );
+      };
+
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    </script>
+</body>
+</html>
