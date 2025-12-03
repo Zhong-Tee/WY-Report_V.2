@@ -1,649 +1,510 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SalesPulse - Sales Reporting Dashboard</title>
-    
-    <!-- Tailwind CSS for styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Chart.js for graphs -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <!-- PapaParse for CSV parsing -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+  import {
+    getFirestore,
+    collection,
+    writeBatch,
+    doc,
+    query,
+    where,
+    orderBy,
+    getDocs,
+    Timestamp,
+    limit,
+  } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-    <style>
-        /* Modern Scrollbar */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
-        .fade-in { animation: fadeIn 0.4s ease-out forwards; opacity: 0; transform: translateY(10px); }
-        @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
-        
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(226, 232, 240, 0.8);
-        }
-    </style>
-</head>
-<body class="bg-slate-50 text-slate-800 font-sans h-screen flex flex-col overflow-hidden">
+  // ==========================================
+  // CONFIGURATION (ของท่านจริง)
+  // ==========================================
+  const firebaseConfig = {
+    apiKey: "AIzaSyBJaOWw1sBJhdqIL0r0SmuXnNv3IimJ8EQ",
+    authDomain: "wy-salesreport.firebaseapp.com",
+    projectId: "wy-salesreport",
+    storageBucket: "wy-salesreport.firebasestorage.app",
+    messagingSenderId: "60076528808",
+    appId: "1:60076528808:web:e607be516901eddcac1e9d",
+    measurementId: "G-400WR05KDG",
+  };
 
-    <!-- Navbar -->
-    <nav class="bg-white border-b border-slate-200 z-50 flex-none">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center gap-3">
-                    <div class="bg-indigo-600 text-white p-2 rounded-lg">
-                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h1 class="text-xl font-bold text-slate-900 tracking-tight leading-none">SalesPulse</h1>
-                        <p class="text-[11px] text-slate-500 font-medium tracking-wide uppercase mt-0.5">Sticker Sales Analytics</p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-4">
-                    <!-- Clear Data Utility -->
-                    <button id="clearDbBtn" class="hidden text-xs font-medium text-red-500 hover:text-red-700 transition-colors">
-                        Reset DB
-                    </button>
-                    <!-- Status Indicator -->
-                    <div id="statusBadge" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200 transition-all">
-                        <span class="w-2 h-2 mr-2 bg-slate-400 rounded-full animate-pulse"></span>
-                        Initializing...
-                    </div>
-                </div>
-            </div>
-        </div>
-    </nav>
+  // ใช้ collection เดียวกับที่มีข้อมูลอยู่แล้วใน Firestore
+  const COLLECTION = "sales_records";
 
-    <!-- Main Content Scroll Area -->
-    <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-        <div class="max-w-7xl mx-auto space-y-6">
+  let db, auth;
+  let chartInstance = null;
 
-            <!-- 1. Import Section -->
-            <div class="glass-panel rounded-xl p-6 shadow-sm fade-in" style="animation-delay: 0.1s;">
-                <div class="flex flex-col sm:flex-row gap-6 items-start sm:items-end">
-                    <div class="flex-1 w-full">
-                        <label class="block text-sm font-semibold text-slate-900 mb-2">Import Sales Data (CSV)</label>
-                        <div class="relative group">
-                            <input type="file" id="csvInput" accept=".csv" class="block w-full text-sm text-slate-500
-                                file:mr-4 file:py-2.5 file:px-4
-                                file:rounded-lg file:border-0
-                                file:text-sm file:font-semibold
-                                file:bg-indigo-50 file:text-indigo-700
-                                hover:file:bg-indigo-100
-                                border border-slate-300 rounded-lg cursor-pointer bg-white transition-all
-                            "/>
-                        </div>
-                    </div>
-                    <button id="importBtn" disabled class="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg shadow-sm hover:bg-indigo-700 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-                        Upload to Firebase
-                    </button>
-                </div>
-                <!-- Upload Progress -->
-                <div id="progressArea" class="mt-4 hidden">
-                    <div class="flex justify-between text-xs font-medium text-slate-600 mb-1">
-                        <span id="progressText">Processing...</span>
-                        <span id="progressPercent">0%</span>
-                    </div>
-                    <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                        <div id="progressBar" class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
-                    </div>
-                </div>
-                <p id="importMsg" class="mt-2 text-sm text-slate-500 empty:hidden"></p>
-            </div>
+  // UI Elements
+  const statusBadge = document.getElementById("statusBadge");
+  const importBtn = document.getElementById("importBtn");
+  const fileInput = document.getElementById("csvInput");
+  const progressBar = document.getElementById("progressBar");
+  const progressArea = document.getElementById("progressArea");
+  const progressText = document.getElementById("progressText");
+  const progressPercent = document.getElementById("progressPercent");
+  const importMsg = document.getElementById("importMsg");
+  const clearDbBtn = document.getElementById("clearDbBtn");
 
-            <!-- 2. Filters -->
-            <div class="glass-panel rounded-xl p-6 shadow-sm fade-in" style="animation-delay: 0.2s;">
-                <div class="flex flex-col lg:flex-row justify-between gap-6">
-                    <div class="flex flex-col sm:flex-row gap-4 items-end">
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1.5">From</label>
-                            <input type="date" id="dateFrom" class="block w-full rounded-lg border-slate-300 bg-slate-50 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1.5">To</label>
-                            <input type="date" id="dateTo" class="block w-full rounded-lg border-slate-300 bg-slate-50 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
-                        </div>
-                        <button id="filterBtn" class="w-full sm:w-auto px-5 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-900 shadow-sm transition-all">
-                            Apply Filter
-                        </button>
-                    </div>
-                    
-                    <div class="flex flex-col gap-2">
-                        <span class="text-xs font-semibold text-slate-500 uppercase">Quick Select</span>
-                        <div class="flex gap-2">
-                            <button data-days="7" class="quick-filter px-3 py-1.5 text-sm font-medium rounded-md bg-white border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 transition-colors">7 Days</button>
-                            <button data-days="30" class="quick-filter px-3 py-1.5 text-sm font-medium rounded-md bg-white border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 transition-colors">30 Days</button>
-                            <button data-days="365" class="quick-filter px-3 py-1.5 text-sm font-medium rounded-md bg-white border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 transition-colors">1 Year</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+  // ==========================================
+  // DATE FORMAT UTILITIES  (dd/mm/yy)
+  // ==========================================
+  function pad2(n) {
+    return n < 10 ? "0" + n : "" + n;
+  }
 
-            <!-- 3. KPI Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 fade-in" style="animation-delay: 0.3s;">
-                <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 relative overflow-hidden group">
-                    <div class="absolute right-0 top-0 h-full w-1 bg-emerald-500 group-hover:w-2 transition-all"></div>
-                    <dt class="text-sm font-medium text-slate-500 truncate">Total Revenue</dt>
-                    <dd class="mt-2 text-3xl font-bold text-slate-900" id="valTotalSales">฿0.00</dd>
-                </div>
-                <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 relative overflow-hidden group">
-                    <div class="absolute right-0 top-0 h-full w-1 bg-blue-500 group-hover:w-2 transition-all"></div>
-                    <dt class="text-sm font-medium text-slate-500 truncate">Total Sheets Sold</dt>
-                    <dd class="mt-2 text-3xl font-bold text-slate-900" id="valTotalQty">0</dd>
-                </div>
-                <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 relative overflow-hidden group">
-                    <div class="absolute right-0 top-0 h-full w-1 bg-amber-500 group-hover:w-2 transition-all"></div>
-                    <dt class="text-sm font-medium text-slate-500 truncate">Avg. Price / Sheet</dt>
-                    <dd class="mt-2 text-3xl font-bold text-slate-900" id="valAvgPrice">฿0.00</dd>
-                </div>
-            </div>
+  // ใช้กับ string "YYYY-MM-DD" หรือ "YYYY-MM-DD HH:00"
+  function formatLabelToDDMMYY(label) {
+    // มีเวลาอยู่ด้วย
+    if (label.includes(" ")) {
+      const [datePart, timePart] = label.split(" ");
+      const [y, m, d] = datePart.split("-").map((x) => parseInt(x, 10));
+      const [hh] = timePart.split(":").map((x) => parseInt(x, 10));
+      const date = new Date(y, m - 1, d, hh);
+      return `${pad2(date.getDate())}/${pad2(
+        date.getMonth() + 1
+      )}/${date.getFullYear().toString().slice(-2)} ${pad2(
+        date.getHours()
+      )}:00`;
+    } else {
+      const [y, m, d] = label.split("-").map((x) => parseInt(x, 10));
+      const date = new Date(y, m - 1, d);
+      return `${pad2(date.getDate())}/${pad2(
+        date.getMonth() + 1
+      )}/${date.getFullYear().toString().slice(-2)}`;
+    }
+  }
 
-            <!-- 4. Chart -->
-            <div class="glass-panel rounded-xl p-6 shadow-sm fade-in" style="animation-delay: 0.4s;">
-                <h3 class="text-lg font-bold text-slate-900 mb-6">Sales Performance</h3>
-                <div class="relative h-80 w-full">
-                    <canvas id="mainChart"></canvas>
-                </div>
-            </div>
+  function formatDateISO(date) {
+    return date.toISOString().split("T")[0]; // YYYY-MM-DD
+  }
+  function formatTimeISO(date) {
+    return date.toTimeString().split(" ")[0]; // HH:mm:ss
+  }
 
-            <!-- 5. Tables -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 fade-in" style="animation-delay: 0.5s;">
-                <!-- Product Ranking -->
-                <div class="glass-panel rounded-xl border border-slate-200 overflow-hidden flex flex-col h-[400px]">
-                    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                        <h3 class="font-bold text-slate-900">Top Products</h3>
-                        <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">By Volume</span>
-                    </div>
-                    <div class="overflow-y-auto flex-1">
-                        <table class="min-w-full divide-y divide-slate-50">
-                            <thead class="bg-white sticky top-0 z-10 shadow-sm">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Name</th>
-                                    <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Qty</th>
-                                    <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-slate-50" id="tableProducts"></tbody>
-                        </table>
-                    </div>
-                </div>
+  // แปลงวันที่ไทยจาก CSV => Date
+  function parseThaiDate(str) {
+    // Expected: "D/M/YYYY HH:mm" เช่น "1/11/2568 10:04"
+    try {
+      const [datePart, timePart] = str.trim().split(" ");
+      const [d, m, y] = datePart.split("/");
 
-                <!-- Branch Ranking -->
-                <div class="glass-panel rounded-xl border border-slate-200 overflow-hidden flex flex-col h-[400px]">
-                    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                        <h3 class="font-bold text-slate-900">Top Branches</h3>
-                        <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">By Revenue</span>
-                    </div>
-                    <div class="overflow-y-auto flex-1">
-                        <table class="min-w-full divide-y divide-slate-50">
-                            <thead class="bg-white sticky top-0 z-10 shadow-sm">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Branch</th>
-                                    <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Qty</th>
-                                    <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-slate-50" id="tableBranches"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+      let year = parseInt(y, 10);
+      if (year > 2400) year -= 543; // BE -> AD
 
-        </div>
-    </main>
+      let h = 0,
+        min = 0;
+      if (timePart) {
+        const [hh, mm] = timePart.split(":");
+        h = parseInt(hh, 10);
+        min = parseInt(mm, 10);
+      }
+      return new Date(year, parseInt(m, 10) - 1, parseInt(d, 10), h, min);
+    } catch (e) {
+      return null;
+    }
+  }
 
-    <!-- Firebase Logic -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-        import { getFirestore, collection, writeBatch, doc, query, where, orderBy, getDocs, Timestamp, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+  // ==========================================
+  // INIT FIREBASE
+  // ==========================================
+  try {
+    const app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    auth = getAuth(app);
 
-        // ==========================================
-        // CONFIGURATION
-        // ==========================================
-        
-        // TODO: Replace with your actual Firebase project configuration
-		const firebaseConfig = {
-  	apiKey: "AIzaSyBJaOWw1sBJhdqIL0r0SmuXnNv3IimJ8EQ",
-  	authDomain: "wy-salesreport.firebaseapp.com",
- 	projectId: "wy-salesreport",
-  	storageBucket: "wy-salesreport.firebasestorage.app",
-  	messagingSenderId: "60076528808",
-  	appId: "1:60076528808:web:e607be516901eddcac1e9d",
-  	measurementId: "G-400WR05KDG"
-		};
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        statusBadge.className =
+          "inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 transition-all";
+        statusBadge.innerHTML =
+          '<span class="w-2 h-2 mr-2 bg-emerald-500 rounded-full"></span>Connected';
 
-        const COLLECTION = 'sales_transactions';
-        let db, auth;
-        let chartInstance = null;
+        importBtn.disabled = false;
+        clearDbBtn.classList.remove("hidden");
 
-        // UI Elements
-        const statusBadge = document.getElementById('statusBadge');
-        const importBtn = document.getElementById('importBtn');
-        const fileInput = document.getElementById('csvInput');
-        const progressBar = document.getElementById('progressBar');
-        const progressArea = document.getElementById('progressArea');
-        const progressText = document.getElementById('progressText');
-        const progressPercent = document.getElementById('progressPercent');
-        const importMsg = document.getElementById('importMsg');
-        const clearDbBtn = document.getElementById('clearDbBtn');
+        // โหลดค่าเริ่มต้น 30 วันล่าสุด
+        setQuickRange(30);
+      } else {
+        signInAnonymously(auth).catch((err) => {
+          console.error(err);
+          statusBadge.innerHTML = "Auth Failed";
+          statusBadge.classList.add("text-red-600", "bg-red-50");
+        });
+      }
+    });
+  } catch (e) {
+    console.error("Firebase Init Error", e);
+    statusBadge.innerHTML = "Config Error";
+    statusBadge.classList.add("text-red-600", "bg-red-50");
+    importMsg.textContent = "Error: Check your Firebase Config in the code.";
+  }
 
-        // ==========================================
-        // INIT FIREBASE
-        // ==========================================
-        try {
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
+  // ==========================================
+  // CSV PARSING & UPLOAD
+  // ==========================================
+  importBtn.addEventListener("click", () => {
+    const file = fileInput.files[0];
+    if (!file) return alert("Please select a CSV file.");
 
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    statusBadge.className = "inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 transition-all";
-                    statusBadge.innerHTML = `<span class="w-2 h-2 mr-2 bg-emerald-500 rounded-full"></span>Connected`;
-                    importBtn.disabled = false;
-                    clearDbBtn.classList.remove('hidden');
-                    
-                    // Initial Load (Last 30 Days)
-                    setQuickRange(30);
-                } else {
-                    signInAnonymously(auth).catch(err => {
-                        console.error(err);
-                        statusBadge.innerHTML = "Auth Failed";
-                        statusBadge.classList.add("text-red-600", "bg-red-50");
-                    });
-                }
+    // Reset UI
+    importBtn.disabled = true;
+    progressArea.classList.remove("hidden");
+    importMsg.textContent = "";
+    progressBar.style.width = "0%";
+    progressPercent.textContent = "0%";
+    progressText.textContent = "Processing...";
+
+    Papa.parse(file, {
+      header: false, // ใช้อ้าง index ตามที่กำหนด
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const data = results.data;
+        const parsedRows = [];
+
+        // index ตามที่ตกลง:
+        // 1: Date (เช่น 1/11/2568 10:04)
+        // 3: Product
+        // 9: Qty
+        // 10: Total
+        // 11: Payment
+        // 14: Branch
+
+        for (let row of data) {
+          if (row.length < 15) continue;
+
+          const dateRaw = row[1];
+          if (
+            !dateRaw ||
+            dateRaw.includes("Date") ||
+            dateRaw.includes("วันที่")
+          )
+            continue; // ข้าม header
+
+          const jsDate = parseThaiDate(dateRaw);
+          if (!jsDate) continue;
+
+          const qty = parseInt(row[9] || 0, 10);
+          const total = parseFloat((row[10] || "0").replace(/,/g, ""));
+
+          if (!isNaN(qty)) {
+            parsedRows.push({
+              transactionDate: formatDateISO(jsDate), // YYYY-MM-DD เก็บแบบนี้
+              transactionTime: formatTimeISO(jsDate),
+              timestamp: Timestamp.fromDate(jsDate),
+              product: (row[3] || "Unknown").trim(),
+              quantity: qty,
+              pricePerSheet: qty > 0 ? total / qty : 0,
+              totalAmount: total,
+              paymentType: (row[11] || "Unknown").trim(),
+              branchName: (row[14] || "Unknown").trim(),
             });
-        } catch (e) {
-            console.error("Firebase Init Error", e);
-            statusBadge.innerHTML = "Config Error";
-            statusBadge.classList.add("text-red-600", "bg-red-50");
-            importMsg.textContent = "Error: Check your Firebase Config in the code.";
+          }
         }
 
-        // ==========================================
-        // CSV PARSING & UPLOAD
-        // ==========================================
-        importBtn.addEventListener('click', () => {
-            const file = fileInput.files[0];
-            if (!file) return alert("Please select a CSV file.");
+        if (parsedRows.length === 0) {
+          finishImport("No valid rows found.", true);
+          return;
+        }
 
-            // Reset UI
-            importBtn.disabled = true;
-            progressArea.classList.remove('hidden');
-            importMsg.textContent = "";
-            progressBar.style.width = "0%";
+        await uploadBatches(parsedRows);
+      },
+      error: (err) => finishImport("CSV Error: " + err.message, true),
+    });
+  });
 
-            Papa.parse(file, {
-                header: false, // Parsing by index as requested
-                skipEmptyLines: true,
-                complete: async (results) => {
-                    const data = results.data;
-                    const parsedRows = [];
-                    
-                    // Indices from user request:
-                    // 1: Date (e.g. 1/11/2568 10:04)
-                    // 3: Product
-                    // 9: Qty
-                    // 10: Total
-                    // 11: Payment
-                    // 14: Branch
+  async function uploadBatches(rows) {
+    const batchSize = 500;
+    const total = rows.length;
+    let current = 0;
 
-                    for(let row of data) {
-                        // Basic validation
-                        if(row.length < 15) continue; 
-                        
-                        // Parse Date
-                        const dateRaw = row[1];
-                        if(!dateRaw || dateRaw.includes('Date') || dateRaw.includes('วันที่')) continue; // Skip header
+    try {
+      for (let i = 0; i < total; i += batchSize) {
+        const batch = writeBatch(db);
+        const chunk = rows.slice(i, i + batchSize);
 
-                        const jsDate = parseThaiDate(dateRaw);
-                        if(!jsDate) continue;
-
-                        const qty = parseInt(row[9] || 0);
-                        const total = parseFloat((row[10] || "0").replace(/,/g, ''));
-                        
-                        // Only add valid rows
-                        if(!isNaN(qty)) {
-                            parsedRows.push({
-                                transactionDate: formatDateISO(jsDate),
-                                transactionTime: formatTimeISO(jsDate),
-                                timestamp: Timestamp.fromDate(jsDate),
-                                product: (row[3] || "Unknown").trim(),
-                                quantity: qty,
-                                pricePerSheet: qty > 0 ? (total/qty) : 0,
-                                totalAmount: total,
-                                paymentType: (row[11] || "Unknown").trim(),
-                                branchName: (row[14] || "Unknown").trim()
-                            });
-                        }
-                    }
-
-                    if(parsedRows.length === 0) {
-                        finishImport("No valid rows found.", true);
-                        return;
-                    }
-
-                    // Batch Upload
-                    await uploadBatches(parsedRows);
-                },
-                error: (err) => finishImport("CSV Error: " + err.message, true)
-            });
+        chunk.forEach((data) => {
+          const ref = doc(collection(db, COLLECTION));
+          batch.set(ref, data);
         });
 
-        function parseThaiDate(str) {
-            // Expected: "D/M/YYYY HH:mm" e.g., "1/11/2568 10:04"
-            // Year 2568 (BE) -> 2025 (AD)
-            try {
-                const [datePart, timePart] = str.trim().split(' ');
-                const [d, m, y] = datePart.split('/');
-                let year = parseInt(y);
-                if (year > 2400) year -= 543; // BE to AD conversion
+        await batch.commit();
+        current += chunk.length;
 
-                let h = 0, min = 0;
-                if(timePart) {
-                    const [hh, mm] = timePart.split(':');
-                    h = parseInt(hh);
-                    min = parseInt(mm);
-                }
-                return new Date(year, parseInt(m)-1, parseInt(d), h, min);
-            } catch(e) {
-                return null;
-            }
-        }
+        const pct = Math.round((current / total) * 100);
+        progressBar.style.width = `${pct}%`;
+        progressPercent.textContent = `${pct}%`;
+        progressText.textContent = `Uploaded ${current}/${total}`;
+      }
 
-        function formatDateISO(date) {
-            return date.toISOString().split('T')[0];
-        }
-        function formatTimeISO(date) {
-            return date.toTimeString().split(' ')[0];
-        }
+      finishImport(`Successfully imported ${total} records!`);
+      document.getElementById("filterBtn").click();
+    } catch (err) {
+      console.error(err);
+      finishImport("Upload Failed: " + err.message, true);
+    }
+  }
 
-        async function uploadBatches(rows) {
-            const batchSize = 500;
-            const total = rows.length;
-            let current = 0;
+  function finishImport(msg, isError = false) {
+    importBtn.disabled = false;
+    importMsg.textContent = msg;
+    importMsg.className = isError
+      ? "mt-2 text-sm text-red-600 font-medium"
+      : "mt-2 text-sm text-emerald-600 font-medium";
 
-            try {
-                for (let i = 0; i < total; i += batchSize) {
-                    const batch = writeBatch(db);
-                    const chunk = rows.slice(i, i + batchSize);
-                    
-                    chunk.forEach(data => {
-                        const ref = doc(collection(db, COLLECTION));
-                        batch.set(ref, data);
-                    });
+    if (!isError) {
+      setTimeout(() => progressArea.classList.add("hidden"), 3000);
+    }
+  }
 
-                    await batch.commit();
-                    current += chunk.length;
-                    
-                    // Update UI
-                    const pct = Math.round((current / total) * 100);
-                    progressBar.style.width = `${pct}%`;
-                    progressPercent.textContent = `${pct}%`;
-                    progressText.textContent = `Uploaded ${current}/${total}`;
-                }
-                finishImport(`Successfully imported ${total} records!`);
-                
-                // Refresh View
-                document.getElementById('filterBtn').click();
+  // ==========================================
+  // DATA QUERY & VISUALIZATION
+  // ==========================================
+  const dateFromEl = document.getElementById("dateFrom");
+  const dateToEl = document.getElementById("dateTo");
 
-            } catch (err) {
-                console.error(err);
-                finishImport("Upload Failed: " + err.message, true);
-            }
-        }
+  document.getElementById("filterBtn").addEventListener("click", () => {
+    loadData(dateFromEl.value, dateToEl.value);
+  });
 
-        function finishImport(msg, isError = false) {
-            importBtn.disabled = false;
-            importMsg.textContent = msg;
-            importMsg.className = isError ? "mt-2 text-sm text-red-600 font-medium" : "mt-2 text-sm text-emerald-600 font-medium";
-            if(!isError) {
-                setTimeout(() => progressArea.classList.add('hidden'), 3000);
-            }
-        }
+  document.querySelectorAll(".quick-filter").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      document.querySelectorAll(".quick-filter").forEach((b) => {
+        b.classList.remove("bg-indigo-600", "text-white", "border-indigo-600");
+        b.classList.add("bg-white", "text-slate-600");
+      });
+      e.target.classList.remove("bg-white", "text-slate-600");
+      e.target.classList.add("bg-indigo-600", "text-white", "border-indigo-600");
 
-        // ==========================================
-        // DATA QUERY & VISUALIZATION
-        // ==========================================
-        
-        // Date Inputs
-        const dateFromEl = document.getElementById('dateFrom');
-        const dateToEl = document.getElementById('dateTo');
+      setQuickRange(parseInt(e.target.dataset.days, 10));
+    });
+  });
 
-        document.getElementById('filterBtn').addEventListener('click', () => {
-            loadData(dateFromEl.value, dateToEl.value);
-        });
+  function setQuickRange(days) {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - days);
 
-        document.querySelectorAll('.quick-filter').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                // Highlight active style
-                document.querySelectorAll('.quick-filter').forEach(b => {
-                    b.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
-                    b.classList.add('bg-white', 'text-slate-600');
-                });
-                e.target.classList.remove('bg-white', 'text-slate-600');
-                e.target.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600');
+    dateFromEl.value = formatDateISO(start);
+    dateToEl.value = formatDateISO(end);
+    loadData(dateFromEl.value, dateToEl.value);
+  }
 
-                setQuickRange(parseInt(e.target.dataset.days));
-            });
-        });
+  async function loadData(startStr, endStr) {
+    if (!startStr || !endStr) return;
 
-        function setQuickRange(days) {
-            const end = new Date();
-            const start = new Date();
-            start.setDate(end.getDate() - days);
-            
-            dateFromEl.value = formatDateISO(start);
-            dateToEl.value = formatDateISO(end);
-            loadData(dateFromEl.value, dateToEl.value);
-        }
+    document.body.style.cursor = "wait";
+    const filterBtn = document.getElementById("filterBtn");
+    const originalText = filterBtn.textContent;
+    filterBtn.textContent = "Loading...";
+    filterBtn.disabled = true;
 
-        async function loadData(startStr, endStr) {
-            if(!startStr || !endStr) return;
+    try {
+      const startDate = new Date(startStr);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(endStr);
+      endDate.setHours(23, 59, 59, 999);
 
-            // Loading State
-            document.body.style.cursor = 'wait';
-            const filterBtn = document.getElementById('filterBtn');
-            const originalText = filterBtn.textContent;
-            filterBtn.textContent = "Loading...";
-            filterBtn.disabled = true;
+      const qSnap = await getDocs(
+        query(
+          collection(db, COLLECTION),
+          where("timestamp", ">=", Timestamp.fromDate(startDate)),
+          where("timestamp", "<=", Timestamp.fromDate(endDate)),
+          orderBy("timestamp", "asc")
+        )
+      );
 
-            try {
-                // Firestore Range Query
-                const startDate = new Date(startStr);
-                startDate.setHours(0,0,0,0);
-                const endDate = new Date(endStr);
-                endDate.setHours(23,59,59,999);
+      const records = qSnap.docs.map((d) => d.data());
+      renderDashboard(records, startDate, endDate);
+    } catch (err) {
+      console.error(err);
+      if (err.message.includes("requires an index")) {
+        alert(
+          "Firestore Index Missing! Please open the console and click the index creation link."
+        );
+      } else {
+        alert("Error loading data: " + err.message);
+      }
+    } finally {
+      document.body.style.cursor = "default";
+      filterBtn.textContent = originalText;
+      filterBtn.disabled = false;
+    }
+  }
 
-                const q = query(
-                    collection(db, COLLECTION),
-                    where("timestamp", ">=", Timestamp.fromDate(startDate)),
-                    where("timestamp", "<=", Timestamp.fromDate(endDate)),
-                    orderBy("timestamp", "asc")
-                );
+  function renderDashboard(data, start, end) {
+    let totalSales = 0;
+    let totalQty = 0;
+    const productMap = {};
+    const branchMap = {};
+    const timeMap = {};
 
-                const snapshot = await getDocs(q);
-                const records = snapshot.docs.map(d => d.data());
+    const daysDiff = (end - start) / (1000 * 60 * 60 * 24);
+    const groupByHour = daysDiff <= 3;
 
-                renderDashboard(records, startDate, endDate);
+    data.forEach((item) => {
+      totalSales += item.totalAmount;
+      totalQty += item.quantity;
 
-            } catch (err) {
-                console.error(err);
-                if(err.message.includes("requires an index")) {
-                    alert("Firestore Index Missing! Please check the console for the creation link.");
-                } else {
-                    alert("Error loading data: " + err.message);
-                }
-            } finally {
-                document.body.style.cursor = 'default';
-                filterBtn.textContent = originalText;
-                filterBtn.disabled = false;
-            }
-        }
+      if (!productMap[item.product])
+        productMap[item.product] = { qty: 0, sales: 0 };
+      productMap[item.product].qty += item.quantity;
+      productMap[item.product].sales += item.totalAmount;
 
-        function renderDashboard(data, start, end) {
-            // 1. Aggregates
-            let totalSales = 0;
-            let totalQty = 0;
-            const productMap = {};
-            const branchMap = {};
-            const timeMap = {};
+      if (!branchMap[item.branchName])
+        branchMap[item.branchName] = { qty: 0, sales: 0 };
+      branchMap[item.branchName].qty += item.quantity;
+      branchMap[item.branchName].sales += item.totalAmount;
 
-            // Decide time grouping (Hourly for < 3 days, Daily otherwise)
-            const daysDiff = (end - start) / (1000 * 60 * 60 * 24);
-            const groupByHour = daysDiff <= 3;
+      const d = item.timestamp.toDate();
+      let key;
+      if (groupByHour) {
+        key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(
+          d.getDate()
+        )} ${pad2(d.getHours())}:00`;
+      } else {
+        key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(
+          d.getDate()
+        )}`;
+      }
 
-            data.forEach(item => {
-                totalSales += item.totalAmount;
-                totalQty += item.quantity;
+      if (!timeMap[key]) timeMap[key] = 0;
+      timeMap[key] += item.totalAmount;
+    });
 
-                // Products
-                if(!productMap[item.product]) productMap[item.product] = { qty: 0, sales: 0 };
-                productMap[item.product].qty += item.quantity;
-                productMap[item.product].sales += item.totalAmount;
+    const fmtCurrency = new Intl.NumberFormat("th-TH", {
+      style: "currency",
+      currency: "THB",
+    });
+    const fmtInt = new Intl.NumberFormat("en-US");
 
-                // Branches
-                if(!branchMap[item.branchName]) branchMap[item.branchName] = { qty: 0, sales: 0 };
-                branchMap[item.branchName].qty += item.quantity;
-                branchMap[item.branchName].sales += item.totalAmount;
+    document.getElementById("valTotalSales").textContent =
+      fmtCurrency.format(totalSales);
+    document.getElementById("valTotalQty").textContent =
+      fmtInt.format(totalQty);
+    document.getElementById("valAvgPrice").textContent = totalQty
+      ? fmtCurrency.format(totalSales / totalQty)
+      : "฿0.00";
 
-                // Time Series
-                const d = item.timestamp.toDate();
-                let key;
-                if(groupByHour) {
-                    // YYYY-MM-DD HH:00
-                    key = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:00`;
-                } else {
-                    // YYYY-MM-DD
-                    key = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-                }
-                
-                if(!timeMap[key]) timeMap[key] = 0;
-                timeMap[key] += item.totalAmount;
-            });
+    updateChart(timeMap);
+    updateTable("tableProducts", productMap);
+    updateTable("tableBranches", branchMap);
+  }
 
-            // Update KPIs
-            const fmt = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' });
-            const numFmt = new Intl.NumberFormat('en-US');
-            
-            document.getElementById('valTotalSales').textContent = fmt.format(totalSales);
-            document.getElementById('valTotalQty').textContent = numFmt.format(totalQty);
-            document.getElementById('valAvgPrice').textContent = totalQty ? fmt.format(totalSales / totalQty) : "฿0.00";
+  function updateChart(timeMap) {
+    const ctx = document.getElementById("mainChart").getContext("2d");
+    const rawLabels = Object.keys(timeMap).sort();
+    const labels = rawLabels.map((l) => formatLabelToDDMMYY(l));
+    const data = rawLabels.map((l) => timeMap[l]);
 
-            // Update Chart
-            updateChart(timeMap);
+    if (chartInstance) chartInstance.destroy();
 
-            // Update Tables
-            updateTable('tableProducts', productMap);
-            updateTable('tableBranches', branchMap);
-        }
+    chartInstance = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Sales Amount",
+            data,
+            backgroundColor: "#4f46e5",
+            borderRadius: 4,
+            barPercentage: 0.6,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) =>
+                new Intl.NumberFormat("th-TH", {
+                  style: "currency",
+                  currency: "THB",
+                }).format(ctx.raw),
+            },
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: { borderDash: [2, 4], color: "#f1f5f9" },
+            ticks: { color: "#94a3b8", font: { size: 11 } },
+          },
+          x: {
+            grid: { display: false },
+            ticks: {
+              color: "#94a3b8",
+              font: { size: 11 },
+              maxTicksLimit: 10,
+            },
+          },
+        },
+      },
+    });
+  }
 
-        function pad(n) { return n < 10 ? '0'+n : n; }
+  function updateTable(id, map) {
+    const tbody = document.getElementById(id);
+    tbody.innerHTML = "";
 
-        function updateChart(timeMap) {
-            const ctx = document.getElementById('mainChart').getContext('2d');
-            const labels = Object.keys(timeMap).sort();
-            const data = labels.map(l => timeMap[l]);
+    const entries = Object.entries(map);
+    if (entries.length === 0) {
+      tbody.innerHTML =
+        '<tr><td colspan="3" class="px-6 py-4 text-center text-xs text-slate-400">No data</td></tr>';
+      return;
+    }
 
-            if(chartInstance) chartInstance.destroy();
+    // แก้ syntax: b[1].sales ไม่ใช่ b.1.sales
+    const sorted = entries.sort((a, b) => b[1].sales - a[1].sales);
+    const fmt = new Intl.NumberFormat("th-TH", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
 
-            chartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Sales Amount',
-                        data: data,
-                        backgroundColor: '#4f46e5',
-                        borderRadius: 4,
-                        barPercentage: 0.6
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: (ctx) => new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' }).format(ctx.raw)
-                            }
-                        }
-                    },
-                    scales: {
-                        y: { 
-                            beginAtZero: true,
-                            grid: { borderDash: [2, 4], color: '#f1f5f9' },
-                            ticks: { color: '#94a3b8', font: { size: 11 } }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: { color: '#94a3b8', font: { size: 11 }, maxTicksLimit: 10 }
-                        }
-                    }
-                }
-            });
-        }
+    sorted.forEach(([name, stats]) => {
+      const tr = document.createElement("tr");
+      tr.className = "hover:bg-slate-50 transition-colors";
+      tr.innerHTML = `
+        <td class="px-6 py-3 whitespace-nowrap text-xs font-medium text-slate-800">${name}</td>
+        <td class="px-6 py-3 whitespace-nowrap text-xs text-slate-500 text-right">${stats.qty}</td>
+        <td class="px-6 py-3 whitespace-nowrap text-xs text-slate-600 text-right font-mono">${fmt.format(
+          stats.sales
+        )}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
 
-        function updateTable(id, map) {
-            const tbody = document.getElementById(id);
-            tbody.innerHTML = "";
-            
-            const sorted = Object.entries(map).sort((a,b) => b.1.sales - a.1.sales);
-            const fmt = new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // Clear DB (ลบทั้งหมดใน collection นี้)
+  clearDbBtn.addEventListener("click", async () => {
+    if (
+      !confirm(
+        "Warning: This will delete ALL sales transactions in Firestore. Continue?"
+      )
+    )
+      return;
 
-            if(sorted.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-xs text-slate-400">No data</td></tr>`;
-                return;
-            }
+    clearDbBtn.textContent = "Clearing...";
+    clearDbBtn.disabled = true;
 
-            sorted.forEach(([name, stats]) => {
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50 transition-colors";
-                tr.innerHTML = `
-                    <td class="px-6 py-3 whitespace-nowrap text-xs font-medium text-slate-800">${name}</td>
-                    <td class="px-6 py-3 whitespace-nowrap text-xs text-slate-500 text-right">${stats.qty}</td>
-                    <td class="px-6 py-3 whitespace-nowrap text-xs text-slate-600 text-right font-mono">${fmt.format(stats.sales)}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
+    let count = 0;
+    while (true) {
+      const snap = await getDocs(
+        query(collection(db, COLLECTION), limit(100))
+      );
+      if (snap.empty) break;
 
-        // Utility: Clear Data
-        clearDbBtn.addEventListener('click', async () => {
-            if(!confirm("Warning: This will delete ALL sales transactions in Firestore. Continue?")) return;
-            clearDbBtn.textContent = "Clearing...";
-            clearDbBtn.disabled = true;
-            
-            // Simple client-side delete loop (for demo/small datasets)
-            let count = 0;
-            while(true) {
-                const q = query(collection(db, COLLECTION), limit(100));
-                const snap = await getDocs(q);
-                if(snap.empty) break;
-                
-                const batch = writeBatch(db);
-                snap.docs.forEach(d => batch.delete(d.ref));
-                await batch.commit();
-                count += snap.size;
-            }
-            
-            alert(`Deleted ${count} records.`);
-            clearDbBtn.textContent = "Reset DB";
-            clearDbBtn.disabled = false;
-            // Clear view
-            renderDashboard([], new Date(), new Date());
-        });
+      const batch = writeBatch(db);
+      snap.docs.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+      count += snap.size;
+    }
 
-    </script>
-</body>
-</html>
+    alert(`Deleted ${count} records.`);
+    clearDbBtn.textContent = "Reset DB";
+    clearDbBtn.disabled = false;
+    renderDashboard([], new Date(), new Date());
+  });
+</script>
