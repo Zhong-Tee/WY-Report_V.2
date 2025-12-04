@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SalesPulse V.10 (Force Load All)</title>
+    <title>SalesPulse V.11 (Multi-File & Grouping)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -11,28 +11,29 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
     <style>
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .animate-pulse-fast { animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        .group-card { transition: all 0.2s; }
+        .group-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
 
+    <!-- Navbar -->
     <nav class="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
             <div class="flex items-center gap-3">
-                <div class="bg-blue-600 text-white p-1.5 rounded-lg">
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                <div class="bg-indigo-600 text-white p-1.5 rounded-lg">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-slate-900">SalesPulse</h1>
-                    <p class="text-[10px] text-slate-500 uppercase tracking-widest">V.10 Ultimate Load</p>
+                    <p class="text-[10px] text-slate-500 uppercase tracking-widest">V.11 Grouping Intelligence</p>
                 </div>
             </div>
             <div class="flex items-center gap-4">
-                <button id="clearDataBtn" class="text-xs text-red-500 font-bold hover:text-red-700 hidden">LOB DATABASE</button>
+                <button id="clearDataBtn" class="text-xs text-red-500 font-bold hover:text-red-700 hidden">RESET DB</button>
                 <div id="dbStatus" class="flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-xs font-medium text-slate-500">
                     <div class="w-2 h-2 rounded-full bg-slate-400"></div> Connecting...
                 </div>
@@ -40,393 +41,371 @@
         </div>
     </nav>
 
-    <main class="max-w-7xl mx-auto px-4 py-8 space-y-6">
+    <main class="max-w-7xl mx-auto px-4 py-8 space-y-8">
         
-        <!-- 1. IMPORT -->
+        <!-- 1. MULTI-FILE IMPORT -->
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h2 class="font-bold text-slate-900 mb-4">1. Import CSV (ถ้ายังไม่ได้เอาเข้า)</h2>
-            <div class="flex gap-4">
-                <input type="file" id="csvFileInput" accept=".csv" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 border rounded-lg">
-                <button id="importBtn" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium transition-all" disabled>Upload</button>
+            <h2 class="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                1. Import Data (Multi-Select Supported)
+            </h2>
+            <div class="flex gap-4 items-center">
+                <!-- Added 'multiple' attribute -->
+                <input type="file" id="csvFileInput" accept=".csv" multiple class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 border rounded-lg cursor-pointer">
+                <button id="importBtn" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 font-medium transition-all shadow-sm" disabled>Upload</button>
             </div>
             <div id="progressBox" class="hidden mt-4">
-                <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden"><div id="progressBar" class="bg-blue-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div></div>
-                <p id="progressText" class="text-xs text-right mt-1 text-slate-500">0%</p>
+                <div class="flex justify-between text-xs text-slate-500 mb-1"><span id="currentFileText">Processing...</span><span id="progressText">0%</span></div>
+                <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden"><div id="progressBar" class="bg-indigo-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div></div>
             </div>
         </section>
 
-        <!-- 2. LOAD DATA -->
+        <!-- 2. LOAD & FILTER -->
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h2 class="font-bold text-slate-900 mb-4">2. Load & Filter Data</h2>
-            <div class="bg-blue-50 border border-blue-100 p-4 rounded-lg mb-4 text-sm text-blue-800 flex justify-between items-center">
-                <span>⚡ ระบบนี้จะดึงข้อมูลทั้งหมดจาก Database มาคำนวณในเครื่อง เพื่อความแม่นยำ 100%</span>
-                <span id="recordCountDisplay" class="font-bold bg-white px-2 py-1 rounded shadow-sm">Records: 0</span>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="font-bold text-slate-900">2. Load & Filter</h2>
+                <span id="totalRecords" class="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">Records: 0</span>
             </div>
             
             <div class="flex flex-wrap gap-4 items-end">
-                <div><label class="block text-xs font-bold text-slate-500 mb-1">Start Date</label><input type="date" id="startDate" class="border p-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"></div>
-                <div><label class="block text-xs font-bold text-slate-500 mb-1">End Date</label><input type="date" id="endDate" class="border p-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"></div>
-                <button id="loadBtn" class="px-6 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 font-medium transition-all shadow-lg shadow-slate-200">
-                    Load Data
-                </button>
+                <div><label class="block text-xs font-bold text-slate-500 mb-1">Start Date</label><input type="date" id="startDate" class="border p-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"></div>
+                <div><label class="block text-xs font-bold text-slate-500 mb-1">End Date</label><input type="date" id="endDate" class="border p-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"></div>
+                <button id="loadBtn" class="px-6 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 font-medium transition-all shadow-lg">Load Data</button>
                 <div class="flex gap-2 ml-auto">
-                    <button onclick="setDateRange('7d')" class="px-3 py-1.5 border rounded hover:bg-slate-50 text-xs font-medium">7 Days</button>
-                    <button onclick="setDateRange('1m')" class="px-3 py-1.5 border rounded hover:bg-slate-50 text-xs font-medium">1 Month</button>
-                    <button onclick="setDateRange('1y')" class="px-3 py-1.5 border rounded hover:bg-slate-50 text-xs font-medium">1 Year</button>
+                    <button onclick="setDateRange('1m')" class="px-3 py-1.5 border rounded hover:bg-slate-50 text-xs font-medium">This Month</button>
+                    <button onclick="setDateRange('1y')" class="px-3 py-1.5 border rounded hover:bg-slate-50 text-xs font-medium">All Time</button>
                 </div>
             </div>
         </section>
 
-        <!-- 3. DASHBOARD -->
-        <div id="dashboard" class="space-y-6 opacity-50 pointer-events-none transition-opacity duration-500">
-            <!-- KPIs -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                    <p class="text-sm font-semibold text-slate-400 uppercase">Total Sales</p>
-                    <p class="text-3xl font-black text-slate-900 mt-2 tracking-tight" id="kpiSales">0.00</p>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                    <p class="text-sm font-semibold text-slate-400 uppercase">Total Sheets</p>
-                    <p class="text-3xl font-black text-slate-900 mt-2 tracking-tight" id="kpiQty">0</p>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                    <p class="text-sm font-semibold text-slate-400 uppercase">Avg / Sheet</p>
-                    <p class="text-3xl font-black text-slate-900 mt-2 tracking-tight" id="kpiAvg">0.00</p>
-                </div>
-            </div>
-
-            <!-- Charts -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                    <h3 class="font-bold mb-4">Sales Trend</h3>
-                    <div class="h-64"><canvas id="mainChart"></canvas></div>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col">
-                    <h3 class="font-bold mb-4">Weekly Stats</h3>
-                    <div class="h-40 mb-2"><canvas id="weeklyChart"></canvas></div>
-                    <div class="flex-1 overflow-auto"><table class="w-full text-sm"><tbody id="weekTable"></tbody></table></div>
+        <!-- 3. MAIN DASHBOARD (Global) -->
+        <div id="dashboard" class="space-y-8 opacity-50 pointer-events-none transition-opacity duration-500">
+            
+            <!-- Global KPIs -->
+            <div>
+                <h3 class="text-lg font-bold text-slate-800 mb-4 px-1">Overview (All Groups)</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-gradient-to-br from-indigo-500 to-blue-600 p-6 rounded-xl shadow-lg text-white">
+                        <p class="text-sm font-medium opacity-80">Total Sales</p>
+                        <p class="text-3xl font-bold mt-1" id="kpiSales">0.00</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <p class="text-sm font-semibold text-slate-400">Total Quantity</p>
+                        <p class="text-3xl font-bold text-slate-900 mt-1" id="kpiQty">0</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <p class="text-sm font-semibold text-slate-400">Avg / Sheet</p>
+                        <p class="text-3xl font-bold text-slate-900 mt-1" id="kpiAvg">0.00</p>
+                    </div>
                 </div>
             </div>
 
-            <!-- Top Ranking -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 h-96 flex flex-col">
-                    <div class="p-4 border-b font-bold bg-slate-50">Top Products</div>
-                    <div class="flex-1 overflow-auto"><table class="w-full text-sm text-left"><thead class="sticky top-0 bg-white shadow-sm"><tr><th class="p-3">Name</th><th class="p-3 text-right">Qty</th><th class="p-3 text-right">Total</th></tr></thead><tbody id="prodTable"></tbody></table></div>
+            <!-- GROUP ANALYSIS SECTION -->
+            <div>
+                <div class="flex items-center gap-2 mb-6 px-1">
+                    <svg class="w-6 h-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                    <h3 class="text-xl font-bold text-slate-800">Branch Group Analysis</h3>
                 </div>
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 h-96 flex flex-col">
-                    <div class="p-4 border-b font-bold bg-slate-50">Top Branches</div>
-                    <div class="flex-1 overflow-auto"><table class="w-full text-sm text-left"><thead class="sticky top-0 bg-white shadow-sm"><tr><th class="p-3">Name</th><th class="p-3 text-right">Qty</th><th class="p-3 text-right">Total</th></tr></thead><tbody id="branchTable"></tbody></table></div>
+
+                <!-- Group Cards Container -->
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                    
+                    <!-- 1. MOSHI GROUP -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden group-card flex flex-col">
+                        <div class="bg-pink-50 px-6 py-4 border-b border-pink-100 flex justify-between items-center">
+                            <h4 class="font-bold text-pink-700">Moshi / MS</h4>
+                            <span class="bg-pink-100 text-pink-700 text-xs font-bold px-2 py-1 rounded">Group A</span>
+                        </div>
+                        <div class="p-6 flex-1 flex flex-col gap-6">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><p class="text-xs text-slate-500 uppercase">Sales</p><p class="text-xl font-bold text-slate-800" id="moshiSales">0</p></div>
+                                <div><p class="text-xs text-slate-500 uppercase">Avg/Sheet</p><p class="text-xl font-bold text-slate-800" id="moshiAvg">0</p></div>
+                            </div>
+                            <!-- Tables -->
+                            <div class="space-y-4">
+                                <div>
+                                    <p class="text-xs font-bold text-slate-400 uppercase mb-2">Top 5 Products</p>
+                                    <table class="w-full text-xs"><tbody id="moshiProdTable"></tbody></table>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-slate-400 uppercase mb-2">Top 5 Branches</p>
+                                    <table class="w-full text-xs"><tbody id="moshiBranchTable"></tbody></table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. B2S GROUP -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden group-card flex flex-col">
+                        <div class="bg-blue-50 px-6 py-4 border-b border-blue-100 flex justify-between items-center">
+                            <h4 class="font-bold text-blue-700">B2S</h4>
+                            <span class="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded">Group B</span>
+                        </div>
+                        <div class="p-6 flex-1 flex flex-col gap-6">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><p class="text-xs text-slate-500 uppercase">Sales</p><p class="text-xl font-bold text-slate-800" id="b2sSales">0</p></div>
+                                <div><p class="text-xs text-slate-500 uppercase">Avg/Sheet</p><p class="text-xl font-bold text-slate-800" id="b2sAvg">0</p></div>
+                            </div>
+                            <!-- Tables -->
+                            <div class="space-y-4">
+                                <div>
+                                    <p class="text-xs font-bold text-slate-400 uppercase mb-2">Top 5 Products</p>
+                                    <table class="w-full text-xs"><tbody id="b2sProdTable"></tbody></table>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-slate-400 uppercase mb-2">Top 5 Branches</p>
+                                    <table class="w-full text-xs"><tbody id="b2sBranchTable"></tbody></table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. WANYEN (Others) -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden group-card flex flex-col">
+                        <div class="bg-orange-50 px-6 py-4 border-b border-orange-100 flex justify-between items-center">
+                            <h4 class="font-bold text-orange-700">Wanyen / Others</h4>
+                            <span class="bg-orange-100 text-orange-700 text-xs font-bold px-2 py-1 rounded">Group C</span>
+                        </div>
+                        <div class="p-6 flex-1 flex flex-col gap-6">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><p class="text-xs text-slate-500 uppercase">Sales</p><p class="text-xl font-bold text-slate-800" id="wanyenSales">0</p></div>
+                                <div><p class="text-xs text-slate-500 uppercase">Avg/Sheet</p><p class="text-xl font-bold text-slate-800" id="wanyenAvg">0</p></div>
+                            </div>
+                            <!-- Tables -->
+                            <div class="space-y-4">
+                                <div>
+                                    <p class="text-xs font-bold text-slate-400 uppercase mb-2">Top 5 Products</p>
+                                    <table class="w-full text-xs"><tbody id="wanyenProdTable"></tbody></table>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-slate-400 uppercase mb-2">Top 5 Branches</p>
+                                    <table class="w-full text-xs"><tbody id="wanyenBranchTable"></tbody></table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
+
         </div>
     </main>
 
     <script>
-        // --- CONFIGURATION ---
+        // CONFIG
         const SUPABASE_URL = 'https://lgaobgxeybmlrbsjgnfh.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxnYW9iZ3hleWJtbHJic2pnbmZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3Nzk1OTYsImV4cCI6MjA4MDM1NTU5Nn0.rmGercp5u829OkeqzDq9R2wlR7lA3b2P4po2CZTXOZM';
         const TABLE = 'sales_records';
 
-        // --- GLOBAL VARS ---
-        let supabase;
-        let GLOBAL_DATA = []; // Store ALL fetched data here
-        let charts = {};
+        let supabase, GLOBAL_DATA = [];
 
-        // --- INIT ---
         window.onload = async () => {
             supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
             const { count, error } = await supabase.from(TABLE).select('*', { count: 'exact', head: true });
-            
-            const statusDiv = document.getElementById('dbStatus');
             if(!error) {
-                statusDiv.innerHTML = `<div class="w-2 h-2 rounded-full bg-green-500"></div> Connected (${count} Rows)`;
-                statusDiv.classList.replace('text-slate-500', 'text-green-700');
-                statusDiv.classList.replace('bg-slate-100', 'bg-green-50');
-                document.getElementById('importBtn').disabled = false;
-                document.getElementById('clearDataBtn').classList.remove('hidden');
-                
-                // Auto Load Today
-                setDateRange('1y'); // Default to 1 year to see data immediately
+                updateStatus(true, count);
+                setDateRange('1y');
                 loadAllDataAndFilter();
             } else {
-                statusDiv.innerHTML = `<div class="w-2 h-2 rounded-full bg-red-500"></div> Error`;
-                statusDiv.classList.replace('text-slate-500', 'text-red-700');
-                alert("Database Error: " + error.message);
+                updateStatus(false, error.message);
             }
         };
 
-        // --- 1. CORE LOGIC: FETCH ALL LOOP ---
+        function updateStatus(connected, msg) {
+            const el = document.getElementById('dbStatus');
+            if(connected) {
+                el.innerHTML = `<div class="w-2 h-2 rounded-full bg-green-500"></div> Connected (${msg} Rows)`;
+                el.className = "flex items-center gap-2 px-3 py-1 bg-green-50 rounded-full text-xs font-medium text-green-700 border border-green-200";
+                document.getElementById('importBtn').disabled = false;
+                document.getElementById('clearDataBtn').classList.remove('hidden');
+            } else {
+                el.innerHTML = `<div class="w-2 h-2 rounded-full bg-red-500"></div> Error`;
+                el.className = "flex items-center gap-2 px-3 py-1 bg-red-50 rounded-full text-xs font-medium text-red-700 border border-red-200";
+                alert(msg);
+            }
+        }
+
+        // --- 1. CORE: LOAD & GROUP ---
         async function loadAllDataAndFilter() {
             const btn = document.getElementById('loadBtn');
-            const countDisplay = document.getElementById('recordCountDisplay');
-            
-            // If we already fetched data, just filter it (Client-side cache)
-            if (GLOBAL_DATA.length > 0) {
-                filterAndRender();
-                return;
-            }
+            if (GLOBAL_DATA.length > 0) { filterAndRender(); return; }
 
-            btn.disabled = true;
-            btn.innerHTML = `<span class="animate-pulse">Fetching DB...</span>`;
+            btn.disabled = true; btn.textContent = "Fetching...";
             document.body.style.cursor = 'wait';
 
-            let allRows = [];
-            let from = 0;
-            const pageSize = 1000;
-            let keepFetching = true;
-
+            let allRows = [], from = 0, pageSize = 1000, keepFetching = true;
             try {
                 while(keepFetching) {
-                    // Update UI
-                    countDisplay.innerText = `Loading... ${allRows.length}`;
-                    
-                    const { data, error } = await supabase
-                        .from(TABLE)
-                        .select('*')
-                        .range(from, from + pageSize - 1)
-                        .order('id', {ascending: true}); // Sort ensures consistent pagination
-
+                    const { data, error } = await supabase.from(TABLE).select('*').range(from, from + pageSize - 1).order('id', {ascending: true});
                     if (error) throw error;
-
-                    if (data.length > 0) {
-                        allRows = allRows.concat(data);
-                        from += pageSize;
-                    } 
-                    
-                    if (data.length < pageSize) {
-                        keepFetching = false; // End of data
-                    }
+                    if (data.length) { allRows = allRows.concat(data); from += pageSize; }
+                    if (data.length < pageSize) keepFetching = false;
                 }
-
-                // SUCCESS
                 GLOBAL_DATA = allRows;
-                countDisplay.innerText = `Records: ${GLOBAL_DATA.length}`;
-                btn.innerHTML = "Load Data";
-                btn.disabled = false;
+                document.getElementById('totalRecords').innerText = `Records: ${GLOBAL_DATA.length}`;
+                btn.textContent = "Load Data"; btn.disabled = false;
                 document.body.style.cursor = 'default';
-                
-                // Enable Dashboard
                 document.getElementById('dashboard').classList.remove('opacity-50', 'pointer-events-none');
-                
                 filterAndRender();
-
-            } catch (err) {
-                console.error(err);
-                alert("Fetch Error: " + err.message);
-                btn.disabled = false;
-                btn.innerHTML = "Retry Load";
-                document.body.style.cursor = 'default';
-            }
+            } catch (err) { alert(err.message); btn.disabled=false; }
         }
 
-        // --- 2. FILTER & RENDER ---
         function filterAndRender() {
-            const startStr = document.getElementById('startDate').value;
-            const endStr = document.getElementById('endDate').value;
-
-            if(!startStr || !endStr) return;
-
-            // CLIENT-SIDE FILTERING (Reliable)
-            const filtered = GLOBAL_DATA.filter(row => {
-                // row.transaction_date should be 'YYYY-MM-DD' text from DB
-                return row.transaction_date >= startStr && row.transaction_date <= endStr;
-            });
-
-            renderDashboard(filtered);
+            const sDate = document.getElementById('startDate').value;
+            const eDate = document.getElementById('endDate').value;
+            const data = GLOBAL_DATA.filter(r => r.transaction_date >= sDate && r.transaction_date <= eDate);
+            processData(data);
         }
 
-        function renderDashboard(data) {
-            let sum = 0, count = 0;
-            const stats = { prod:{}, branch:{}, daily:{}, weekly:[0,0,0,0,0,0,0] };
+        function processData(data) {
+            // Stats Structure
+            const global = { sum:0, count:0 };
+            const groups = {
+                'Moshi': { sum:0, count:0, prod:{}, branch:{} },
+                'B2S': { sum:0, count:0, prod:{}, branch:{} },
+                'Wanyen': { sum:0, count:0, prod:{}, branch:{} }
+            };
 
             data.forEach(r => {
-                const val = Number(r.total_amount) || 0;
-                const qty = Number(r.quantity) || 0;
-                sum += val; count += qty;
+                const val = Number(r.total_amount)||0;
+                const qty = Number(r.quantity)||0;
+                const prod = r.product || "Unknown";
+                const branch = r.branch_name || "Unknown";
+                
+                // Global
+                global.sum += val; global.count += qty;
 
-                // Products
-                const p = r.product || "Unknown";
-                if(!stats.prod[p]) stats.prod[p] = {q:0, v:0};
-                stats.prod[p].q += qty; stats.prod[p].v += val;
+                // Group Logic
+                let grp = 'Wanyen';
+                const bUpper = branch.toUpperCase();
+                if(bUpper.includes('MOSHI') || bUpper.includes('MS')) grp = 'Moshi';
+                else if(bUpper.includes('B2S')) grp = 'B2S';
 
-                // Branches
-                const b = r.branch_name || "Unknown";
-                if(!stats.branch[b]) stats.branch[b] = {q:0, v:0};
-                stats.branch[b].q += qty; stats.branch[b].v += val;
-
-                // Daily
-                const d = r.transaction_date;
-                stats.daily[d] = (stats.daily[d]||0) + val;
-
-                // Weekly
-                const dayIdx = new Date(r.timestamp).getDay(); // 0=Sun
-                stats.weekly[dayIdx] += val;
+                // Add to Group
+                const g = groups[grp];
+                g.sum += val; g.count += qty;
+                
+                if(!g.prod[prod]) g.prod[prod] = 0; g.prod[prod] += val;
+                if(!g.branch[branch]) g.branch[branch] = 0; g.branch[branch] += val;
             });
 
-            // UI UPDATES
-            const fmtNum = new Intl.NumberFormat('en-US');
-            const fmtMoney = new Intl.NumberFormat('en-US', {style:'currency', currency:'THB'});
+            // Render
+            const cur = new Intl.NumberFormat('en-US', {style:'currency', currency:'THB'});
+            const num = new Intl.NumberFormat('en-US');
 
-            document.getElementById('kpiSales').innerText = fmtMoney.format(sum);
-            document.getElementById('kpiQty').innerText = fmtNum.format(count);
-            document.getElementById('kpiAvg').innerText = fmtMoney.format(count ? sum/count : 0);
+            // Global UI
+            document.getElementById('kpiSales').innerText = cur.format(global.sum);
+            document.getElementById('kpiQty').innerText = num.format(global.count);
+            document.getElementById('kpiAvg').innerText = cur.format(global.count ? global.sum/global.count : 0);
 
-            // Tables
-            renderTable('prodTable', stats.prod, fmtNum, fmtMoney);
-            renderTable('branchTable', stats.branch, fmtNum, fmtMoney);
-
-            // Charts
-            renderCharts(stats.daily, stats.weekly);
-        }
-
-        function renderTable(id, dataObj, fmtNum, fmtMoney) {
-            const html = Object.entries(dataObj)
-                .sort((a,b) => b[1].v - a[1].v)
-                .map(([k,v]) => `
-                    <tr class="border-b hover:bg-slate-50 transition-colors">
-                        <td class="p-3 font-medium text-slate-700 truncate max-w-[200px]" title="${k}">${k}</td>
-                        <td class="p-3 text-right text-slate-500">${fmtNum.format(v.q)}</td>
-                        <td class="p-3 text-right font-mono text-slate-900">${fmtMoney.format(v.v)}</td>
-                    </tr>`
+            // Group UI Helper
+            const renderGroup = (key, prefix) => {
+                const g = groups[key];
+                document.getElementById(prefix+'Sales').innerText = cur.format(g.sum);
+                document.getElementById(prefix+'Avg').innerText = cur.format(g.count ? g.sum/g.count : 0);
+                
+                // Top Products
+                const sortedProd = Object.entries(g.prod).sort((a,b)=>b[1]-a[1]).slice(0,5);
+                document.getElementById(prefix+'ProdTable').innerHTML = sortedProd.map(([k,v]) => 
+                    `<tr class="border-b border-slate-50"><td class="py-1 text-slate-600 truncate max-w-[120px]" title="${k}">${k}</td><td class="text-right font-mono text-slate-800">${cur.format(v)}</td></tr>`
                 ).join('');
-            document.getElementById(id).innerHTML = html || '<tr><td colspan="3" class="p-4 text-center text-slate-400">No Data</td></tr>';
+
+                // Top Branches
+                const sortedBranch = Object.entries(g.branch).sort((a,b)=>b[1]-a[1]).slice(0,5);
+                document.getElementById(prefix+'BranchTable').innerHTML = sortedBranch.map(([k,v]) => 
+                    `<tr class="border-b border-slate-50"><td class="py-1 text-slate-600 truncate max-w-[120px]" title="${k}">${k}</td><td class="text-right font-mono text-slate-800">${cur.format(v)}</td></tr>`
+                ).join('');
+            };
+
+            renderGroup('Moshi', 'moshi');
+            renderGroup('B2S', 'b2s');
+            renderGroup('Wanyen', 'wanyen');
         }
 
-        function renderCharts(dailyStats, weeklyStats) {
-            // Daily Chart
-            const days = Object.keys(dailyStats).sort();
-            const dailyData = days.map(d => dailyStats[d]);
-            
-            if(charts.main) charts.main.destroy();
-            charts.main = new Chart(document.getElementById('mainChart'), {
-                type: 'line',
-                data: {
-                    labels: days,
-                    datasets: [{
-                        label: 'Sales',
-                        data: dailyData,
-                        borderColor: '#2563eb',
-                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                        fill: true,
-                        tension: 0.3
-                    }]
-                },
-                options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
-            });
-
-            // Weekly Chart
-            const wLabels = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-            // Rotate to start Mon
-            const rotData = [...weeklyStats.slice(1), weeklyStats[0]];
-            const rotLabels = [...wLabels.slice(1), wLabels[0]];
-
-            if(charts.week) charts.week.destroy();
-            charts.week = new Chart(document.getElementById('weeklyChart'), {
-                type: 'bar',
-                data: {
-                    labels: rotLabels,
-                    datasets: [{
-                        data: rotData,
-                        backgroundColor: '#10b981',
-                        borderRadius: 4
-                    }]
-                },
-                options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}}} }
-            });
-
-            // Weekly Table
-            const fmt = new Intl.NumberFormat('en-US', {style:'currency', currency:'THB'});
-            document.getElementById('weekTable').innerHTML = rotLabels.map((d, i) => `
-                <tr class="border-b">
-                    <td class="py-2 px-2 text-slate-600">${d}</td>
-                    <td class="text-right font-mono text-slate-900">${fmt.format(rotData[i])}</td>
-                </tr>
-            `).join('');
-        }
-
-        // --- 3. UTILS & IMPORT ---
-        function setDateRange(rng) {
-            const e = new Date(); const s = new Date();
-            if(rng==='7d') s.setDate(e.getDate()-7);
-            if(rng==='1m') s.setMonth(e.getMonth()-1);
-            if(rng==='1y') s.setFullYear(e.getFullYear()-1);
-            
-            document.getElementById('startDate').value = s.toISOString().split('T')[0];
-            document.getElementById('endDate').value = e.toISOString().split('T')[0];
-            
-            // Auto reload filter if data exists
-            if(GLOBAL_DATA.length > 0) filterAndRender();
-        }
-
-        document.getElementById('loadBtn').onclick = () => {
-            // If data is empty, fetch. Else just filter.
-            if(GLOBAL_DATA.length === 0) loadAllDataAndFilter();
-            else filterAndRender();
-        };
-
-        document.getElementById('importBtn').onclick = () => {
-            const file = document.getElementById('csvFileInput').files[0];
-            if(!file) return alert("Select CSV");
+        // --- 2. MULTI-FILE IMPORT ---
+        document.getElementById('importBtn').onclick = async () => {
+            const files = document.getElementById('csvFileInput').files;
+            if(!files.length) return alert("Select files");
             
             const btn = document.getElementById('importBtn');
-            btn.disabled = true; btn.innerText = "Processing...";
+            btn.disabled = true; 
             document.getElementById('progressBox').classList.remove('hidden');
 
-            Papa.parse(file, {
-                header: false, skipEmptyLines: true,
-                complete: async (res) => {
-                    const rows = res.data.map(row => {
-                        if(row.length < 11) return null;
-                        
-                        // DATE PARSER (DD/MM/YYYY)
-                        const parts = (row[1]||"").trim().split(" ")[0].split("/");
-                        if(parts.length!==3) return null;
-                        let y = parseInt(parts[2]); if(y>2400) y-=543;
-                        const dateObj = new Date(y, parseInt(parts[1])-1, parseInt(parts[0]));
-                        if(isNaN(dateObj.getTime())) return null;
+            // Process sequentially
+            for(let i=0; i<files.length; i++) {
+                const file = files[i];
+                document.getElementById('currentFileText').innerText = `Processing: ${file.name} (${i+1}/${files.length})`;
+                await processFile(file);
+            }
 
-                        const qty = parseInt(row[9]||0);
-                        const total = parseFloat((row[10]||"0").replace(/,/g, ""));
-
-                        return {
-                            timestamp: dateObj.toISOString(),
-                            transaction_date: dateObj.toISOString().split('T')[0],
-                            transaction_time: (row[1]||"").split(" ")[1] || "00:00:00",
-                            product: (row[3]||"").trim(),
-                            quantity: qty,
-                            price_per_sheet: qty ? total/qty : 0,
-                            total_amount: total,
-                            payment_type: (row[11]||"").trim(),
-                            branch_name: (row[14]||"").trim()
-                        };
-                    }).filter(r => r);
-
-                    // BATCH UPLOAD
-                    const batchSize = 500;
-                    for(let i=0; i<Math.ceil(rows.length/batchSize); i++) {
-                        await supabase.from(TABLE).insert(rows.slice(i*batchSize, (i+1)*batchSize));
-                        const pct = Math.round(((i+1)/(rows.length/batchSize))*100);
-                        document.getElementById('progressBar').style.width = pct+"%";
-                        document.getElementById('progressText').innerText = pct+"%";
-                    }
-
-                    alert("Import Complete! Reloading data...");
-                    GLOBAL_DATA = []; // Force refresh
-                    loadAllDataAndFilter();
-                    btn.disabled = false; btn.innerText = "Upload";
-                    setTimeout(() => document.getElementById('progressBox').classList.add('hidden'), 2000);
-                }
-            });
+            alert("All files processed!");
+            GLOBAL_DATA = []; // Clear cache to reload
+            loadAllDataAndFilter();
+            btn.disabled = false; btn.innerText = "Upload";
+            setTimeout(() => document.getElementById('progressBox').classList.add('hidden'), 3000);
         };
 
+        function processFile(file) {
+            return new Promise((resolve) => {
+                Papa.parse(file, {
+                    header: false, skipEmptyLines: true,
+                    complete: async (res) => {
+                        const rows = res.data.map(transform).filter(r => r);
+                        if(rows.length) {
+                            // Batch Insert (Ignore Duplicates logic handled by SQL Constraint)
+                            const batch = 500;
+                            for(let j=0; j<Math.ceil(rows.length/batch); j++) {
+                                const chunk = rows.slice(j*batch, (j+1)*batch);
+                                // Using insert with ignoreDuplicates (requires SQL Constraint)
+                                await supabase.from(TABLE).upsert(chunk, { onConflict: 'transaction_date, transaction_time, branch_name, product, total_amount', ignoreDuplicates: true });
+                                
+                                const pct = Math.round(((j+1)/(rows.length/batch))*100);
+                                document.getElementById('progressBar').style.width = pct+"%";
+                                document.getElementById('progressText').innerText = pct+"%";
+                            }
+                        }
+                        resolve();
+                    }
+                });
+            });
+        }
+
+        function transform(row) {
+            if(row.length < 11) return null; 
+            const parts = (row[1]||"").trim().split(" ")[0].split("/");
+            if(parts.length!==3) return null;
+            let y = parseInt(parts[2]); if(y>2400) y-=543;
+            const dt = new Date(y, parseInt(parts[1])-1, parseInt(parts[0]));
+            if(isNaN(dt.getTime())) return null;
+
+            const qty = parseInt(row[9]||0);
+            const total = parseFloat((row[10]||"0").replace(/,/g, ""));
+
+            return {
+                timestamp: dt.toISOString(),
+                transaction_date: dt.toISOString().split('T')[0],
+                transaction_time: (row[1]||"").split(" ")[1] || "00:00:00",
+                product: (row[3]||"").trim(),
+                quantity: qty,
+                price_per_sheet: qty ? total/qty : 0,
+                total_amount: total,
+                payment_type: (row[11]||"").trim(),
+                branch_name: (row[14]||"").trim()
+            };
+        }
+
+        // UTILS
+        function setDateRange(rng) {
+            const e = new Date(); const s = new Date();
+            if(rng==='1m') s.setMonth(e.getMonth()-1);
+            if(rng==='1y') s.setFullYear(e.getFullYear()-1);
+            document.getElementById('startDate').value = s.toISOString().split('T')[0];
+            document.getElementById('endDate').value = e.toISOString().split('T')[0];
+            if(GLOBAL_DATA.length) filterAndRender();
+        }
+        document.getElementById('loadBtn').onclick = () => { GLOBAL_DATA.length ? filterAndRender() : loadAllDataAndFilter(); };
         document.getElementById('clearDataBtn').onclick = async () => {
-            if(!confirm("DELETE ALL DATA?")) return;
-            await supabase.from(TABLE).delete().neq('id', 0);
-            GLOBAL_DATA = [];
-            renderDashboard([]);
-            document.getElementById('recordCountDisplay').innerText = "Records: 0";
-            alert("Database Cleared");
+            if(confirm("DELETE ALL DATA?")) { await supabase.from(TABLE).delete().neq('id', 0); GLOBAL_DATA=[]; processData([]); alert("Cleared"); }
         };
     </script>
 </body>
