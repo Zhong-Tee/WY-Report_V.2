@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sales Reporting Dashboard</title>
+    <title>Sales Reporting Dashboard V.2</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -44,7 +44,7 @@
                     <div>
                         <h1 class="text-xl font-bold text-slate-900 tracking-tight">SalesPulse</h1>
                         <p class="text-[10px] text-slate-500 font-medium uppercase tracking-wide">
-                            Analytics Dashboard
+                            Analytics Dashboard V.2
                         </p>
                     </div>
                 </div>
@@ -257,16 +257,53 @@
             </div>
         </section>
 
-        <!-- 4. Chart Section -->
+        <!-- 4. Main Chart Section (Time Series) -->
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 animate-fade-in"
                  style="animation-delay: 0.35s">
-            <h2 class="text-lg font-semibold text-slate-900 mb-6">Sales Trend</h2>
+            <h2 class="text-lg font-semibold text-slate-900 mb-6">Sales Trend (Time Series)</h2>
             <div class="relative h-80 w-full">
                 <canvas id="salesChart"></canvas>
             </div>
         </section>
 
-        <!-- 5. Rankings Tables -->
+        <!-- 5. [NEW] Weekly Analysis Section (Mon-Sun) -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in" style="animation-delay: 0.38s">
+            <!-- Left: Weekly Chart -->
+            <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h2 class="text-lg font-semibold text-slate-900 mb-4">Sales by Day of Week</h2>
+                <div class="relative h-64 w-full">
+                    <canvas id="weeklyChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Right: Weekly Summary Table -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                    <h3 class="text-lg font-semibold text-slate-900">Weekly Summary</h3>
+                </div>
+                <div class="overflow-y-auto flex-1">
+                    <table class="min-w-full divide-y divide-slate-100">
+                        <thead class="bg-white">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">Day</th>
+                                <th class="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">Sales</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50" id="weeklyTableBody">
+                            <!-- JS Generated -->
+                        </tbody>
+                        <tfoot class="bg-slate-50 font-semibold">
+                            <tr>
+                                <td class="px-4 py-3 text-sm text-slate-900">Total</td>
+                                <td class="px-4 py-3 text-sm text-slate-900 text-right" id="weeklyTotalDisplay">0.00</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 6. Rankings Tables -->
         <section class="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in"
                  style="animation-delay: 0.4s">
             
@@ -333,7 +370,7 @@
             </div>
         </section>
 
-        <!-- 6. Raw Data Preview -->
+        <!-- 7. Raw Data Preview -->
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden
                         animate-fade-in" style="animation-delay: 0.45s">
             <div class="px-6 py-4 border-b border-slate-200 cursor-pointer hover:bg-slate-50
@@ -472,6 +509,7 @@
         const quickFilterBtns = document.querySelectorAll(".quick-filter-btn");
 
         let currentChart = null;
+        let weeklyChart = null; // New chart instance
         const COLLECTION_NAME = "sales_records";
 
         // ============================
@@ -780,6 +818,17 @@
             const branchStats = {};
             const timeSeriesData = {};
 
+            // Structure for Days of Week (0=Sun, 1=Mon...6=Sat)
+            const dayOfWeekStats = {
+                1: 0, // Mon
+                2: 0, // Tue
+                3: 0, // Wed
+                4: 0, // Thu
+                5: 0, // Fri
+                6: 0, // Sat
+                0: 0  // Sun
+            };
+
             const timeDiff = endDate - startDate;
             const daysDiff = timeDiff / (1000 * 3600 * 24);
             const groupByHour = daysDiff <= 7;
@@ -791,11 +840,13 @@
                 totalSales += salesVal;
                 totalSheets += qtyVal;
 
+                // Product Stats
                 const prodName = rec.product || "Unknown";
                 if (!productStats[prodName]) productStats[prodName] = { sheets: 0, sales: 0 };
                 productStats[prodName].sheets += qtyVal;
                 productStats[prodName].sales += salesVal;
 
+                // Branch Stats
                 const branchName = rec.branchName || "Unknown";
                 if (!branchStats[branchName]) branchStats[branchName] = { sheets: 0, sales: 0 };
                 branchStats[branchName].sheets += qtyVal;
@@ -803,6 +854,8 @@
 
                 if (rec.timestamp) {
                     const dateObj = rec.timestamp.toDate();
+                    
+                    // Time Series (Main Chart)
                     let key;
                     if (groupByHour) {
                         const y = dateObj.getFullYear();
@@ -818,6 +871,10 @@
                     }
                     if (!timeSeriesData[key]) timeSeriesData[key] = 0;
                     timeSeriesData[key] += salesVal;
+
+                    // Weekly Aggregation (Feature 2)
+                    const dayIdx = dateObj.getDay(); // 0-6
+                    dayOfWeekStats[dayIdx] += salesVal;
                 }
             });
 
@@ -829,14 +886,91 @@
             });
             const numberFmt = new Intl.NumberFormat("en-US");
 
+            // KPI Updates
             document.getElementById("kpiTotalSales").textContent = currencyFmt.format(totalSales);
             document.getElementById("kpiTotalSheets").textContent = numberFmt.format(totalSheets);
             document.getElementById("kpiAvgSales").textContent = currencyFmt.format(avgSales);
 
+            // Table Updates
             renderTable("productTableBody", productStats);
             renderTable("branchTableBody", branchStats);
-            renderChart(timeSeriesData);
+            
+            // Chart Updates
+            renderChart(timeSeriesData); // Main Trend
             renderRawData(records.slice(0, 50));
+
+            // NEW: Render Weekly Analysis
+            renderWeeklyAnalysis(dayOfWeekStats);
+        }
+
+        // --- Weekly Analysis Logic (NEW) ---
+        function renderWeeklyAnalysis(dayStats) {
+            // Order: Mon, Tue, Wed, Thu, Fri, Sat, Sun
+            const order = [1, 2, 3, 4, 5, 6, 0];
+            const labels = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+            const shortLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            const dataValues = order.map(idx => dayStats[idx]);
+            
+            const currencyFmt = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            // 1. Render Table
+            const tbody = document.getElementById("weeklyTableBody");
+            tbody.innerHTML = "";
+            let totalWeekly = 0;
+
+            order.forEach((dayIdx, i) => {
+                const val = dayStats[dayIdx];
+                totalWeekly += val;
+                
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td class="px-4 py-2 text-sm text-slate-700">${labels[i]}</td>
+                    <td class="px-4 py-2 text-sm text-slate-700 text-right font-mono">${currencyFmt.format(val)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            document.getElementById("weeklyTotalDisplay").textContent = currencyFmt.format(totalWeekly);
+
+            // 2. Render Chart
+            const ctx = document.getElementById("weeklyChart").getContext("2d");
+            if (weeklyChart) weeklyChart.destroy();
+
+            weeklyChart = new Chart(ctx, {
+                type: "bar",
+                data: {
+                    labels: shortLabels,
+                    datasets: [{
+                        label: "Sales by Day",
+                        data: dataValues,
+                        backgroundColor: "rgba(16, 185, 129, 0.7)", // Emerald Green
+                        borderColor: "rgb(16, 185, 129)",
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => currencyFmt.format(context.parsed.y)
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { borderDash: [2, 2] },
+                            ticks: { callback: (val) => val >= 1000 ? (val/1000).toFixed(0) + 'k' : val }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
         }
 
         function renderTable(elementId, statsObj) {
