@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SalesPulse V.25 (Branch Intelligence)</title>
+    <title>SalesPulse V.26 (Full View)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -35,19 +35,10 @@
         </div>
 
         <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
-            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors active">
-                Dashboard
-            </button>
-            <!-- NEW MENU -->
-            <button onclick="switchTab('branch')" id="nav-branch" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
-                Branch Analysis
-            </button>
-            <button onclick="switchTab('compare')" id="nav-compare" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
-                Sales Compare
-            </button>
-            <button onclick="switchTab('pnl')" id="nav-pnl" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
-                Profit & Loss
-            </button>
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors active">Dashboard</button>
+            <button onclick="switchTab('branch')" id="nav-branch" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">Branch Analysis</button>
+            <button onclick="switchTab('compare')" id="nav-compare" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">Sales Compare</button>
+            <button onclick="switchTab('pnl')" id="nav-pnl" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">Profit & Loss</button>
         </nav>
 
         <div class="p-4 border-t border-slate-100 bg-slate-50">
@@ -80,12 +71,8 @@
             <div class="flex flex-col xl:flex-row justify-between items-end gap-4 border-b border-slate-100 pb-6">
                 <div>
                     <h2 class="text-3xl font-bold text-slate-900 tracking-tight">Dashboard</h2>
-                    <p class="text-sm text-slate-500 mt-1">
-                        Showing: <span id="currentRangeText" class="font-bold text-indigo-600">...</span>
-                        <span id="recordCountDisplay" class="ml-2 font-mono bg-slate-100 px-2 py-0.5 rounded text-xs text-slate-500">0 rows</span>
-                    </p>
+                    <p class="text-sm text-slate-500 mt-1">Showing: <span id="currentRangeText" class="font-bold text-indigo-600">...</span> <span id="recordCountDisplay" class="ml-2 font-mono bg-slate-100 px-2 py-0.5 rounded text-xs text-slate-500">0 rows</span></p>
                 </div>
-                
                 <div class="flex flex-wrap gap-3 items-center bg-slate-50 p-2 rounded-lg border border-slate-200 shadow-sm">
                     <div class="flex items-center gap-2">
                         <input type="date" id="dashStart" class="text-sm border p-1.5 rounded outline-none focus:ring-1 focus:ring-indigo-500">
@@ -109,22 +96,22 @@
 
             <!-- Charts -->
             <div class="space-y-6">
-                <!-- Trend -->
                 <div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
                     <h3 class="text-lg font-bold text-slate-800 mb-4">Daily Sales Trend</h3>
                     <div class="h-64 relative w-full"><canvas id="salesTrendChart"></canvas></div>
                 </div>
                 
-                <!-- Weekly Sales + Table (New Layout) -->
+                <!-- FIXED: FULL HEIGHT TABLE -->
                 <div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
                     <h3 class="text-lg font-bold text-slate-800 mb-4">Weekly Performance (Mon-Sun)</h3>
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-2 h-64 relative">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-72"> <!-- Fixed Height Container -->
+                        <div class="lg:col-span-2 relative h-full">
                             <canvas id="weeklySalesChart"></canvas>
                         </div>
-                        <div class="lg:col-span-1 overflow-y-auto bg-slate-50 rounded-lg border border-slate-200 max-h-64">
+                        <!-- Expanded Table Height -->
+                        <div class="lg:col-span-1 overflow-y-auto bg-slate-50 rounded-lg border border-slate-200 h-full">
                             <table class="w-full text-sm">
-                                <thead class="bg-slate-100 text-xs uppercase text-slate-500"><tr><th class="px-4 py-2 text-left">Day</th><th class="px-4 py-2 text-right">Sales</th></tr></thead>
+                                <thead class="bg-slate-100 text-xs uppercase text-slate-500 sticky top-0"><tr><th class="px-4 py-3 text-left">Day</th><th class="px-4 py-3 text-right">Sales</th></tr></thead>
                                 <tbody id="weeklySummaryTable" class="divide-y divide-slate-200"></tbody>
                             </table>
                         </div>
@@ -133,12 +120,12 @@
             </div>
         </div>
 
-        <!-- 2. BRANCH ANALYSIS (NEW) -->
+        <!-- 2. BRANCH ANALYSIS (ENHANCED) -->
         <div id="view-branch" class="hidden fade-in space-y-8">
              <div class="flex flex-col md:flex-row justify-between items-end gap-4 border-b border-slate-100 pb-6">
                 <div>
                     <h2 class="text-3xl font-bold text-slate-900 tracking-tight">Branch Group Analysis</h2>
-                    <p class="text-sm text-slate-500 mt-1">Performance by group and rankings.</p>
+                    <p class="text-sm text-slate-500 mt-1">Performance overview & detailed rankings.</p>
                 </div>
                 <div class="flex gap-2 items-center bg-slate-50 p-1.5 rounded-lg border border-slate-200 shadow-sm">
                     <input type="date" id="branchStart" class="text-sm border p-1.5 rounded">
@@ -182,21 +169,21 @@
         </div>
     </main>
 
-    <!-- MODAL (Generic) -->
+    <!-- MODAL (Expanded) -->
     <div id="rankingModal" class="modal opacity-0 pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
         <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeModal()"></div>
-        <div class="bg-white w-11/12 md:max-w-4xl h-[80vh] rounded-2xl shadow-2xl z-10 flex flex-col overflow-hidden transform transition-all scale-95" id="modalContent">
+        <div class="bg-white w-11/12 md:max-w-6xl h-[90vh] rounded-2xl shadow-2xl z-10 flex flex-col overflow-hidden transform transition-all scale-95" id="modalContent">
             <div class="flex justify-between items-center px-6 py-4 border-b bg-slate-50">
-                <h3 class="font-bold text-xl text-slate-800" id="modalTitle">Rankings</h3>
+                <h3 class="font-bold text-xl text-slate-800" id="modalTitle">All Rankings</h3>
                 <button onclick="closeModal()" class="text-slate-400 hover:text-red-500 text-2xl">×</button>
             </div>
             <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-hidden flex-1 bg-white">
-                <div class="flex flex-col h-full border rounded-xl overflow-hidden">
-                    <div class="bg-indigo-50 px-4 py-2 font-bold text-indigo-700 text-sm uppercase">Top 10 Products</div>
+                <div class="flex flex-col h-full border rounded-xl overflow-hidden shadow-sm">
+                    <div class="bg-indigo-50 px-4 py-3 font-bold text-indigo-700 text-sm uppercase border-b border-indigo-100">All Products</div>
                     <div class="flex-1 overflow-y-auto"><table class="w-full text-sm"><tbody id="modalProdBody" class="divide-y divide-slate-100"></tbody></table></div>
                 </div>
-                <div class="flex flex-col h-full border rounded-xl overflow-hidden">
-                    <div class="bg-emerald-50 px-4 py-2 font-bold text-emerald-700 text-sm uppercase">Top 10 Branches</div>
+                <div class="flex flex-col h-full border rounded-xl overflow-hidden shadow-sm">
+                    <div class="bg-emerald-50 px-4 py-3 font-bold text-emerald-700 text-sm uppercase border-b border-emerald-100">All Branches</div>
                     <div class="flex-1 overflow-y-auto"><table class="w-full text-sm"><tbody id="modalBranchBody" class="divide-y divide-slate-100"></tbody></table></div>
                 </div>
             </div>
@@ -247,7 +234,7 @@
             overlay.classList[show?'remove':'add']('hidden');
         }
 
-        // CORE FETCH
+        // --- CORE: FETCH ---
         async function fetchData(s, e) {
             showLoading(true, "Fetching...");
             let allRows = [], from = 0, pageSize = 1000, keepFetching = true;
@@ -272,11 +259,8 @@
             GLOBAL_DATA = await fetchData(s, e);
             document.getElementById('recordCountDisplay').innerText = `${GLOBAL_DATA.length} rows`;
             document.getElementById('currentRangeText').innerText = `${s} to ${e}`;
-            
-            // Sync Branch dates if empty
-            document.getElementById('branchStart').value = s;
+            document.getElementById('branchStart').value = s; // Sync branch view
             document.getElementById('branchEnd').value = e;
-            
             renderDashboard();
         }
 
@@ -308,7 +292,6 @@
             const sortedDates = Object.keys(daily).sort();
             const trendData = sortedDates.map(d => daily[d]);
             
-            // 1. Trend Chart (Clean)
             if(charts.trend) charts.trend.destroy();
             charts.trend = new Chart(document.getElementById('salesTrendChart'), {
                 type: 'bar',
@@ -316,7 +299,6 @@
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {display:false}, datalabels: { display: false } } }
             });
 
-            // 2. Weekly Chart (Right Side Table Layout)
             const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
             const weekData = [1,2,3,4,5,6,0].map(i => weekly[i]);
             const cur = new Intl.NumberFormat('en-US', {style:'currency', currency:'THB', maximumFractionDigits: 0});
@@ -336,17 +318,16 @@
             });
 
             document.getElementById('weeklySummaryTable').innerHTML = dayLabels.map((d, i) => 
-                `<tr class="hover:bg-slate-50"><td class="py-3 px-2 font-medium text-slate-600 border-b border-slate-50">${d}</td><td class="py-3 px-2 text-right font-mono text-slate-800 border-b border-slate-50">${cur.format(weekData[i])}</td></tr>`
+                `<tr class="hover:bg-slate-50"><td class="py-3 px-4 font-medium text-slate-600 text-sm">${d}</td><td class="py-3 px-4 text-right font-mono text-slate-800 text-sm font-bold">${cur.format(weekData[i])}</td></tr>`
             ).join('');
         }
 
-        // --- 2. BRANCH ANALYSIS (NEW) ---
+        // --- 2. BRANCH VIEW (ENHANCED) ---
         function renderBranchView() {
             const s = document.getElementById('branchStart').value;
             const e = document.getElementById('branchEnd').value;
             if(!s || !e) return;
 
-            // Filter Global Data
             const data = GLOBAL_DATA.filter(r => r.transaction_date >= s && r.transaction_date <= e);
             
             const groups = {
@@ -359,8 +340,7 @@
                 const g = getGroup(r.branch_name);
                 const v = Number(r.total_amount)||0;
                 const q = Number(r.quantity)||0;
-                groups[g].sum += v;
-                groups[g].qty += q;
+                groups[g].sum += v; groups[g].qty += q;
                 groups[g].branches.add(r.branch_name);
                 groups[g].data.push(r);
             });
@@ -374,21 +354,50 @@
                 const d = groups[grp];
                 const color = grp==='Moshi'?'pink':(grp==='B2S'?'blue':'orange');
                 
+                // Calculate Top 5 for Preview
+                const prodStats = {}, branchStats = {};
+                d.data.forEach(r => {
+                    const p = r.product||"?", b=r.branch_name||"?";
+                    prodStats[p]=(prodStats[p]||0)+Number(r.total_amount);
+                    branchStats[b]=(branchStats[b]||0)+Number(r.total_amount);
+                });
+                
+                const topProdHtml = Object.entries(prodStats).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v],i)=>
+                    `<tr class="border-b border-${color}-50 text-xs"><td class="py-1 text-slate-500 w-6">${i+1}.</td><td class="py-1 text-slate-700 truncate max-w-[100px]" title="${k}">${k}</td><td class="py-1 text-right text-slate-900 font-medium">${cur.format(v)}</td></tr>`
+                ).join('');
+
+                const topBranchHtml = Object.entries(branchStats).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v],i)=>
+                    `<tr class="border-b border-${color}-50 text-xs"><td class="py-1 text-slate-500 w-6">${i+1}.</td><td class="py-1 text-slate-700 truncate max-w-[100px]" title="${k}">${k}</td><td class="py-1 text-right text-slate-900 font-medium">${cur.format(v)}</td></tr>`
+                ).join('');
+
                 container.innerHTML += `
-                <div class="bg-white rounded-xl border border-${color}-200 shadow-sm hover:shadow-md transition-all overflow-hidden">
-                    <div class="bg-${color}-50 px-6 py-4 border-b border-${color}-100 flex justify-between items-center">
-                        <h3 class="font-bold text-${color}-700 text-lg">${grp}</h3>
-                        <span class="bg-white text-${color}-600 text-xs font-bold px-3 py-1 rounded-full border border-${color}-100">${d.branches.size} Branches</span>
+                <div class="bg-white rounded-xl border border-${color}-200 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col h-full">
+                    <div class="bg-${color}-50 px-5 py-4 border-b border-${color}-100 flex justify-between items-center">
+                        <div><h3 class="font-bold text-${color}-800 text-lg">${grp}</h3><p class="text-xs text-${color}-600 font-medium">${d.branches.size} Branches</p></div>
+                        <div class="text-right"><p class="text-xs text-slate-500 uppercase">Total</p><p class="font-bold text-slate-800 text-xl">${cur.format(d.sum)}</p></div>
                     </div>
-                    <div class="p-6">
-                        <div class="grid grid-cols-3 gap-4 text-center mb-6">
-                            <div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Sales</p><p class="font-bold text-slate-800 text-lg">${cur.format(d.sum)}</p></div>
-                            <div class="border-l border-r border-slate-100"><p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Sheets</p><p class="font-bold text-slate-800 text-lg">${num.format(d.qty)}</p></div>
-                            <div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Avg</p><p class="font-bold text-slate-800 text-lg">${cur.format(d.qty ? d.sum/d.qty : 0)}</p></div>
+                    
+                    <div class="p-5 flex-1 space-y-4">
+                        <div class="grid grid-cols-2 gap-4 text-center mb-2">
+                            <div class="bg-slate-50 p-2 rounded"><p class="text-[10px] text-slate-400 font-bold uppercase">Sheets</p><p class="font-bold text-slate-700">${num.format(d.qty)}</p></div>
+                            <div class="bg-slate-50 p-2 rounded"><p class="text-[10px] text-slate-400 font-bold uppercase">Avg/Sheet</p><p class="font-bold text-slate-700">${cur.format(d.qty ? d.sum/d.qty : 0)}</p></div>
                         </div>
-                        <button onclick="openGroupModal('${grp}')" class="w-full py-2.5 bg-${color}-50 text-${color}-700 text-sm font-bold rounded-lg hover:bg-${color}-100 transition-colors flex items-center justify-center gap-2">
-                            View Top 10
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+
+                        <div class="grid grid-cols-2 gap-3 h-40">
+                            <div class="overflow-hidden flex flex-col">
+                                <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Top 5 Products</p>
+                                <div class="flex-1 overflow-y-auto border border-slate-100 rounded p-1"><table class="w-full">${topProdHtml}</table></div>
+                            </div>
+                            <div class="overflow-hidden flex flex-col">
+                                <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Top 5 Branches</p>
+                                <div class="flex-1 overflow-y-auto border border-slate-100 rounded p-1"><table class="w-full">${topBranchHtml}</table></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 border-t border-slate-100 bg-slate-50/50">
+                        <button onclick="openGroupModal('${grp}')" class="w-full py-2 bg-white border border-${color}-200 text-${color}-700 text-sm font-bold rounded hover:bg-${color}-50 transition-colors shadow-sm">
+                            View All Data
                         </button>
                     </div>
                 </div>`;
@@ -403,25 +412,20 @@
             const prod = {}, branch = {};
             data.forEach(r => {
                 const v = Number(r.total_amount)||0;
-                const p = r.product || "?";
-                const b = r.branch_name || "?";
-                prod[p] = (prod[p]||0)+v;
-                branch[b] = (branch[b]||0)+v;
+                const p = r.product || "?"; const b = r.branch_name || "?";
+                prod[p] = (prod[p]||0)+v; branch[b] = (branch[b]||0)+v;
             });
 
-            document.getElementById('modalTitle').innerText = `${grp} Top 10 Rankings (${s} to ${e})`;
+            document.getElementById('modalTitle').innerText = `${grp} Analysis (${s} to ${e})`;
             const cur = new Intl.NumberFormat('en-US', {style:'currency', currency:'THB', maximumFractionDigits: 0});
-
             const fill = (id, obj) => {
-                const html = Object.entries(obj).sort((a,b) => b[1]-a[1]).slice(0,10).map(([k,v], i) => 
-                    `<tr class="hover:bg-indigo-50 transition-colors"><td class="p-3 pl-4 text-slate-400 w-10 font-mono">${i+1}</td><td class="p-3 text-slate-700 font-medium truncate max-w-[150px]" title="${k}">${k}</td><td class="p-3 text-right pr-4 font-mono text-slate-800 font-bold">${cur.format(v)}</td></tr>`
+                const html = Object.entries(obj).sort((a,b) => b[1]-a[1]).map(([k,v], i) => 
+                    `<tr class="hover:bg-slate-50 transition-colors"><td class="p-3 pl-4 text-slate-400 w-10 font-mono">${i+1}</td><td class="p-3 text-slate-700 font-medium">${k}</td><td class="p-3 text-right pr-4 font-mono text-slate-800 font-bold">${cur.format(v)}</td></tr>`
                 ).join('');
-                document.getElementById(id).innerHTML = html || '<tr><td colspan="3" class="p-4 text-center text-slate-400">No Data</td></tr>';
+                document.getElementById(id).innerHTML = html;
             };
 
-            fill('modalProdBody', prod);
-            fill('modalBranchBody', branch);
-
+            fill('modalProdBody', prod); fill('modalBranchBody', branch);
             const modal = document.getElementById('rankingModal');
             modal.classList.remove('opacity-0', 'pointer-events-none');
             document.getElementById('modalContent').classList.remove('scale-95');
@@ -435,7 +439,6 @@
             document.body.classList.remove('modal-active');
         };
 
-        // --- HELPERS ---
         function getGroup(b) {
             b = (b||"").toUpperCase();
             if(b.includes('MOSHI') || b.includes('MS')) return 'Moshi';
@@ -451,7 +454,6 @@
             }
         }
 
-        // Dash Filters
         window.filterDash7Days = () => { const e = new Date(); const s = new Date(); s.setDate(e.getDate()-6); setDash(s,e); };
         window.filterDashByMonth = (m) => { if(!m) return; const [y, mo] = m.split('-'); setDash(new Date(y, mo-1, 1), new Date(y, mo, 0)); };
         window.filterDashByYear = (y) => { if(!y) return; setDash(new Date(y, 0, 1), new Date(y, 11, 31)); };
@@ -476,12 +478,10 @@
             });
             document.getElementById(`view-${t}`).classList.remove('hidden');
             document.getElementById(`nav-${t}`).classList.add('active');
-            
             if(t==='pnl') loadPnLMonth();
-            if(t==='branch') renderBranchView(); // Refresh branch view on switch
+            if(t==='branch') renderBranchView();
         };
 
-        // IMPORT & DELETE (UPDATED)
         function setupEventListeners() {
             document.getElementById('globalImportBtn').onclick = () => document.getElementById('globalCsvInput').click();
             document.getElementById('globalCsvInput').onchange = async (e) => {
@@ -494,7 +494,7 @@
                 for(let i=0; i<files.length; i++) {
                     const f = files[i];
                     const { data: exists } = await supabase.from(LOG_TABLE).select('*').eq('filename', f.name).single();
-                    if(exists) { alert(`❌ Blocked: ${f.name} already exists.`); continue; }
+                    if(exists) { alert(`❌ BLOCK: ${f.name} already exists!`); continue; }
 
                     await new Promise(resolve => {
                         Papa.parse(f, { header:false, skipEmptyLines:true, complete: async (res) => {
@@ -537,7 +537,7 @@
             };
             
             document.getElementById('globalResetBtn').onclick = async () => {
-                const pass = prompt("Enter Passcode to RESET DB (001):");
+                const pass = prompt("Enter Passcode (001):");
                 if(pass !== '001') return alert("Wrong Passcode");
                 if(confirm("DELETE ALL DATA?")) {
                     await supabase.from(TABLE).delete().neq('id', 0);
@@ -565,7 +565,7 @@
             };
         }
 
-        // COMPARE & PNL
+        // --- COMPARE & PNL SAME AS BEFORE ---
         window.runCompare = async () => {
             const sA = document.getElementById('compStartA').value; const eA = document.getElementById('compEndA').value;
             const sB = document.getElementById('compStartB').value; const eB = document.getElementById('compEndB').value;
@@ -597,6 +597,14 @@
                 container.innerHTML += `<div class="bg-white rounded-xl border p-4"><div class="font-bold mb-2 flex justify-between"><span>${grp}</span><span>${cur.format(total)}</span></div><table class="w-full"><tbody>${rows}</tbody></table></div>`;
             });
         }
+
+        window.updateCost = (key, val, sales, el) => {
+            localStorage.setItem(key, val);
+            const profit = sales - val;
+            const cell = el.closest('tr').querySelector('.profit-cell');
+            cell.innerText = new Intl.NumberFormat('en-US', {style:'currency', currency:'THB'}).format(profit);
+            cell.className = `py-3 px-6 text-right font-mono font-bold profit-cell ${profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`;
+        };
     </script>
 </body>
 </html>
