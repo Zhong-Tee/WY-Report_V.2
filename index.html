@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SalesPulse V.15 (Duplicate File Protection)</title>
+    <title>SalesPulse V.16 (Strict & Delete Tool)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -14,6 +14,8 @@
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .group-card { transition: all 0.2s; }
+        .group-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
@@ -26,12 +28,20 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-slate-900">SalesPulse</h1>
-                    <p class="text-[10px] text-slate-500 uppercase tracking-widest">V.15 Smart Protection</p>
+                    <p class="text-[10px] text-slate-500 uppercase tracking-widest">V.16 Strict & Smart Delete</p>
                 </div>
             </div>
-            <div class="flex items-center gap-4">
-                <button id="clearDataBtn" class="px-3 py-1 bg-red-50 text-red-600 text-xs font-bold rounded hover:bg-red-100 border border-red-200 hidden">
-                    🗑️ RESET DB
+            <div class="flex items-center gap-3">
+                <!-- New Delete Button -->
+                <button id="deleteByFileBtn" class="px-3 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded hover:bg-orange-200 border border-orange-200 transition-colors flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    Delete DATA (By File)
+                </button>
+                <!-- Hidden input for delete -->
+                <input type="file" id="deleteFileInput" accept=".csv" class="hidden">
+
+                <button id="resetDbBtn" class="px-3 py-1 bg-red-50 text-red-600 text-xs font-bold rounded hover:bg-red-100 border border-red-200 transition-colors">
+                    RESET DB
                 </button>
                 <div id="dbStatus" class="flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-xs font-medium text-slate-500">
                     <div class="w-2 h-2 rounded-full bg-slate-400"></div> Connecting...
@@ -49,11 +59,13 @@
             </h2>
             <div class="flex gap-4 items-center">
                 <input type="file" id="csvFileInput" accept=".csv" multiple class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 border rounded-lg cursor-pointer">
-                <button id="importBtn" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 font-medium transition-all shadow-sm" disabled>Check & Upload</button>
+                <button id="importBtn" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 font-medium transition-all shadow-sm" disabled>Upload</button>
             </div>
+            <!-- Unified Progress Bar -->
             <div id="progressBox" class="hidden mt-4">
-                <div class="flex justify-between text-xs text-slate-500 mb-1"><span id="currentFileText">Checking...</span><span id="progressText">0%</span></div>
+                <div class="flex justify-between text-xs text-slate-500 mb-1"><span id="currentFileText">Processing...</span><span id="progressText">0%</span></div>
                 <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden"><div id="progressBar" class="bg-indigo-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div></div>
+                <p id="statusDetail" class="text-xs text-slate-400 mt-1"></p>
             </div>
         </section>
 
@@ -78,7 +90,7 @@
             </div>
         </section>
 
-        <!-- 3. DASHBOARD -->
+        <!-- 3. MAIN DASHBOARD -->
         <div id="dashboard" class="space-y-8 opacity-50 pointer-events-none transition-opacity duration-500">
             
             <!-- Global KPIs -->
@@ -214,61 +226,119 @@
             }
         }
 
-        // --- 1. IMPORT LOGIC (WITH FILE CHECK) ---
+        // --- 1. STRICT IMPORT ---
         document.getElementById('importBtn').onclick = async () => {
             const files = document.getElementById('csvFileInput').files;
             if(!files.length) return alert("Select files");
             const btn = document.getElementById('importBtn');
             btn.disabled = true; 
-            document.getElementById('progressBox').classList.remove('hidden');
+            const progressBox = document.getElementById('progressBox');
+            progressBox.classList.remove('hidden');
 
             for(let i=0; i<files.length; i++) {
                 const file = files[i];
                 const fileName = file.name;
-                document.getElementById('currentFileText').innerText = `Checking: ${fileName}...`;
+                document.getElementById('currentFileText').innerText = `Checking: ${fileName}`;
 
-                // 1.1 Check if file already uploaded
+                // Strict Check
                 const { data: existing } = await supabase.from(LOG_TABLE).select('*').eq('filename', fileName).single();
-                
                 if (existing) {
-                    const confirmUpload = confirm(`⚠️ Warning: File "${fileName}" was already uploaded on ${new Date(existing.uploaded_at).toLocaleDateString()}.\n\nDo you want to upload it again? (Duplicates may occur if you don't reset DB)`);
-                    if (!confirmUpload) {
-                        document.getElementById('currentFileText').innerText = `Skipped: ${fileName}`;
-                        continue; // Skip this file
-                    }
+                    alert(`❌ BLOCK: File "${fileName}" already exists! \n\nTo re-upload, please use 'Delete DATA' button to remove old data first.`);
+                    document.getElementById('statusDetail').innerText = `Skipped: ${fileName}`;
+                    continue; 
                 }
 
-                // 1.2 Process File
-                document.getElementById('currentFileText').innerText = `Processing: ${fileName}...`;
-                await new Promise(resolve => {
-                    Papa.parse(file, {
-                        header: false, skipEmptyLines: true,
-                        complete: async (res) => {
-                            const rows = res.data.map(transform).filter(r => r);
-                            if(rows.length) {
-                                const batch = 500;
-                                for(let j=0; j<Math.ceil(rows.length/batch); j++) {
-                                    await supabase.from(TABLE).insert(rows.slice(j*batch, (j+1)*batch));
-                                    const pct = Math.round(((j+1)/(rows.length/batch))*100);
-                                    document.getElementById('progressBar').style.width = pct+"%";
-                                    document.getElementById('progressText').innerText = pct+"%";
-                                }
-                                // 1.3 Log the upload
-                                await supabase.from(LOG_TABLE).insert({ 
-                                    filename: fileName, 
-                                    total_rows: rows.length 
-                                });
-                            }
-                            resolve();
-                        }
-                    });
-                });
+                document.getElementById('currentFileText').innerText = `Uploading: ${fileName}`;
+                await processImport(file);
             }
             
-            alert("Batch Process Complete!");
+            alert("Process Complete!");
             GLOBAL_DATA = []; loadAllDataAndFilter();
             btn.disabled = false;
-            setTimeout(() => document.getElementById('progressBox').classList.add('hidden'), 2000);
+            setTimeout(() => progressBox.classList.add('hidden'), 3000);
+        };
+
+        function processImport(file) {
+            return new Promise(resolve => {
+                Papa.parse(file, {
+                    header: false, skipEmptyLines: true,
+                    complete: async (res) => {
+                        const rows = res.data.map(transform).filter(r => r);
+                        if(rows.length) {
+                            const batch = 500;
+                            for(let j=0; j<Math.ceil(rows.length/batch); j++) {
+                                await supabase.from(TABLE).insert(rows.slice(j*batch, (j+1)*batch));
+                                const pct = Math.round(((j+1)/(rows.length/batch))*100);
+                                document.getElementById('progressBar').style.width = pct+"%";
+                                document.getElementById('progressText').innerText = pct+"%";
+                            }
+                            // Log Success
+                            await supabase.from(LOG_TABLE).insert({ filename: file.name, total_rows: rows.length });
+                        }
+                        resolve();
+                    }
+                });
+            });
+        }
+
+        // --- 2. DELETE BY FILE ---
+        document.getElementById('deleteByFileBtn').onclick = () => {
+            document.getElementById('deleteFileInput').click();
+        };
+
+        document.getElementById('deleteFileInput').onchange = async (e) => {
+            const file = e.target.files[0];
+            if(!file) return;
+            
+            if(!confirm(`⚠️ Confirm DELETE data matching file: "${file.name}"?`)) return;
+
+            const progressBox = document.getElementById('progressBox');
+            progressBox.classList.remove('hidden');
+            document.getElementById('progressBar').className = "bg-red-500 h-2 rounded-full transition-all duration-300";
+            document.getElementById('currentFileText').innerText = `Scanning & Deleting: ${file.name}`;
+
+            Papa.parse(file, {
+                header: false, skipEmptyLines: true,
+                complete: async (res) => {
+                    const rows = res.data.map(transform).filter(r => r);
+                    if(rows.length) {
+                        // Delete in batches
+                        const batchSize = 50; 
+                        let deletedCount = 0;
+                        
+                        for(let j=0; j<Math.ceil(rows.length/batchSize); j++) {
+                            const chunk = rows.slice(j*batchSize, (j+1)*batchSize);
+                            
+                            // Construct massive OR filter for precision delete
+                            // We use match on: Date, Time, Branch, Product, Amount
+                            const deletePromises = chunk.map(r => 
+                                supabase.from(TABLE).delete().match({
+                                    transaction_date: r.transaction_date,
+                                    transaction_time: r.transaction_time,
+                                    branch_name: r.branch_name,
+                                    product: r.product,
+                                    total_amount: r.total_amount
+                                })
+                            );
+                            
+                            await Promise.all(deletePromises);
+                            
+                            deletedCount += chunk.length;
+                            const pct = Math.round((deletedCount / rows.length) * 100);
+                            document.getElementById('progressBar').style.width = pct+"%";
+                            document.getElementById('progressText').innerText = pct+"%";
+                        }
+
+                        // Remove from Log
+                        await supabase.from(LOG_TABLE).delete().eq('filename', file.name);
+                    }
+                    alert("Deletion Complete!");
+                    GLOBAL_DATA = []; loadAllDataAndFilter();
+                    progressBox.classList.add('hidden');
+                    document.getElementById('progressBar').className = "bg-indigo-500 h-2 rounded-full transition-all duration-300"; // Reset color
+                    e.target.value = ''; // Reset input
+                }
+            });
         };
 
         function transform(row) {
@@ -278,16 +348,13 @@
             if(!datePart) return null;
             const dSplit = datePart.split("/");
             if(dSplit.length !== 3) return null;
+            let y = parseInt(dSplit[2]); if(y>2400) y-=543;
             
-            let day = dSplit[0].padStart(2, '0');
-            let month = dSplit[1].padStart(2, '0');
-            let year = parseInt(dSplit[2]);
-            if(year > 2400) year -= 543; 
-            
-            const isoDate = `${year}-${month}-${day}`;
+            const isoDate = `${y}-${dSplit[1].padStart(2,'0')}-${dSplit[0].padStart(2,'0')}`;
             let timeStr = timePart || "00:00:00";
             timeStr = timeStr.split(':').map(t => t.padStart(2, '0')).join(':');
             const timestampStr = `${isoDate}T${timeStr}`;
+
             const qty = parseInt(row[9]||0);
             const total = parseFloat((row[10]||"0").replace(/,/g, ""));
 
@@ -304,7 +371,7 @@
             };
         }
 
-        // --- 2. FETCH & RENDER ---
+        // --- 3. LOAD & RENDER ---
         async function loadAllDataAndFilter() {
             const btn = document.getElementById('loadBtn');
             if (GLOBAL_DATA.length > 0) { filterAndRender(); return; }
@@ -394,68 +461,4 @@
                 document.getElementById(prefix+'BranchTable').innerHTML = mkTable(g.branch);
             });
             
-            document.getElementById('rawDataTableBody').innerHTML = data.slice(0,50).map(r => 
-                `<tr class="border-b hover:bg-slate-50"><td class="p-3">${r.transaction_date} ${r.transaction_time}</td><td class="p-3 truncate max-w-[150px]">${r.product}</td><td class="p-3 truncate max-w-[150px]">${r.branch_name}</td><td class="p-3 text-right">${r.quantity}</td><td class="p-3 text-right font-mono">${cur.format(r.total_amount)}</td></tr>`
-            ).join('');
-        }
-
-        function renderCharts(daily, weekly) {
-            const days = Object.keys(daily).sort();
-            const dData = days.map(d => daily[d]);
-            
-            if(charts.main) charts.main.destroy();
-            charts.main = new Chart(document.getElementById('mainChart'), {
-                type: 'line',
-                data: { labels: days, datasets: [{ label: 'Sales', data: dData, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.1)', fill: true }] },
-                options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
-            });
-
-            const wLabels = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-            const rotData = [...weekly.slice(1), weekly[0]];
-            const rotLabels = [...wLabels.slice(1), wLabels[0]];
-
-            if(charts.week) charts.week.destroy();
-            charts.week = new Chart(document.getElementById('weeklyChart'), {
-                type: 'bar',
-                data: { labels: rotLabels, datasets: [{ data: rotData, backgroundColor: '#10b981', borderRadius: 4 }] },
-                options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}}} }
-            });
-
-            document.getElementById('weekTable').innerHTML = rotLabels.map((d, i) => 
-                `<tr class="border-b"><td class="py-1 text-slate-600">${d}</td><td class="text-right font-mono">${new Intl.NumberFormat('en-US', {style:'currency', currency:'THB'}).format(rotData[i])}</td></tr>`
-            ).join('');
-        }
-
-        document.getElementById('clearDataBtn').onclick = async () => {
-            if(!confirm("DELETE ALL DATA?")) return;
-            await supabase.from(TABLE).delete().neq('id', 0);
-            // Also clear logs
-            await supabase.from(LOG_TABLE).delete().neq('id', 0);
-            GLOBAL_DATA = []; loadAllDataAndFilter();
-            alert("Cleared");
-        };
-
-        function setDateRange(mode) {
-            const d = new Date();
-            if(mode === 'auto' && GLOBAL_DATA.length) {
-                const dates = GLOBAL_DATA.map(r => r.transaction_date).sort();
-                document.getElementById('startDate').value = dates[0];
-                document.getElementById('endDate').value = dates[dates.length-1];
-            } else if(mode === '1d') {
-                const today = d.toISOString().split('T')[0];
-                document.getElementById('startDate').value = today;
-                document.getElementById('endDate').value = today;
-            } else if(mode === '1m') {
-                const end = d.toISOString().split('T')[0];
-                d.setMonth(d.getMonth()-1);
-                const start = d.toISOString().split('T')[0];
-                document.getElementById('startDate').value = start;
-                document.getElementById('endDate').value = end;
-            }
-            if(GLOBAL_DATA.length) filterAndRender();
-        }
-        
-        document.getElementById('loadBtn').onclick = () => { GLOBAL_DATA.length ? filterAndRender() : loadAllDataAndFilter(); };
-    </script>
-</body>
-</html>
+            document.getElementById('rawD
