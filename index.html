@@ -168,7 +168,7 @@
             </div>
         </div>
 
-        <!-- 5. P&L (UPDATED GP COL) -->
+        <!-- 5. P&L (UPDATED GP COL & SORTING) -->
         <div id="view-pnl" class="hidden fade-in space-y-8">
             <div class="flex justify-between items-end border-b border-slate-100 pb-6">
                 <div><h2 class="text-3xl font-bold text-slate-900">Profit & Loss</h2><p class="text-sm text-slate-500">Calculate net profit by branch.</p></div>
@@ -365,7 +365,6 @@
                 const topProd = Object.entries(prodStats).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v],i)=>`<tr class="border-b border-${color}-50 text-xs"><td class="py-1 text-slate-500 w-4">${i+1}</td><td class="py-1 truncate max-w-[80px]" title="${k}">${k}</td><td class="py-1 text-right">${cur.format(v)}</td></tr>`).join('');
                 const topBr = Object.entries(branchStats).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v],i)=>`<tr class="border-b border-${color}-50 text-xs"><td class="py-1 text-slate-500 w-4">${i+1}</td><td class="py-1 truncate max-w-[80px]" title="${k}">${k}</td><td class="py-1 text-right">${cur.format(v)}</td></tr>`).join('');
 
-                // FIXED: Changed "Br" to "Branch"
                 container.innerHTML += `<div class="bg-white rounded-xl border border-${color}-200 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col h-full"><div class="bg-${color}-50 px-5 py-3 border-b border-${color}-100 flex justify-between items-center"><h3 class="font-bold text-${color}-700 text-lg">${grp}</h3><span class="text-xs bg-white px-2 py-1 rounded font-bold border border-${color}-200 text-${color}-600">${branches.size} Branch</span></div><div class="p-4 flex-1 space-y-4"><div class="grid grid-cols-2 gap-2 text-center"><div><p class="text-[10px] text-slate-400 font-bold">SALES</p><p class="font-bold text-slate-800">${cur.format(sum)}</p></div><div><p class="text-[10px] text-slate-400 font-bold">QTY</p><p class="font-bold text-slate-800">${num.format(qty)}</p></div></div><div class="grid grid-cols-2 gap-2"><div class="overflow-hidden"><p class="text-[9px] font-bold text-slate-400 mb-1">TOP PRODUCTS</p><table class="w-full">${topProd}</table></div><div class="overflow-hidden"><p class="text-[9px] font-bold text-slate-400 mb-1">TOP BRANCHES</p><table class="w-full">${topBr}</table></div></div></div><div class="p-3 border-t border-slate-100 bg-slate-50/50"><button onclick="openGroupModal('${grp}')" class="w-full py-2 bg-white border border-${color}-200 text-${color}-700 text-xs font-bold rounded hover:bg-${color}-50">View All Data</button></div></div>`;
             });
         }
@@ -384,7 +383,6 @@
             ['Moshi', 'B2S', 'Wanyen'].forEach(grp => {
                 const color = grp==='Moshi'?'pink':(grp==='B2S'?'blue':'orange'); let rows = '';
                 groups[grp].forEach(br => { const s = BRANCH_COSTS_CACHE[br] || {rent:0, gp:0}; rows += `<tr class="border-b hover:bg-slate-50"><td class="py-2 px-4 text-xs font-medium truncate max-w-[150px]" title="${br}">${br}</td><td class="py-2 px-2 text-right"><input type="number" value="${s.rent}" class="border rounded w-20 text-right text-xs p-1" onchange="saveCostCloud('${br}', 'rent', this.value)"></td><td class="py-2 px-2 text-right"><input type="number" value="${s.gp}" class="border rounded w-14 text-right text-xs p-1" onchange="saveCostCloud('${br}', 'gp', this.value)"></td><td class="py-2 px-2 text-center"><button onclick="deleteCostCloud('${br}')" class="text-red-400 hover:text-red-600">×</button></td></tr>`; });
-                // FIXED: Changed max-h-96 to dynamic calc height
                 container.innerHTML += `<div class="bg-white rounded-xl border border-${color}-200 overflow-hidden"><div class="bg-${color}-50 px-4 py-2 font-bold text-${color}-800 text-sm">${grp}</div><div class="h-[calc(100vh-240px)] overflow-y-auto"><table class="w-full"><thead class="bg-slate-50 text-[10px] uppercase text-slate-500"><tr><th class="text-left px-4 py-2">Branch</th><th class="px-2 text-right">Rent</th><th class="px-2 text-right">%GP</th><th class="px-2"></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
             });
         }
@@ -424,11 +422,10 @@
             document.getElementById('compQtyB').innerText = num.format(rB.q);
             
             // --- DAILY DATA LOGIC FOR LINE CHART ---
-            // Map data to Day of Month (1...31)
             const mapDaily = (data) => {
                 const map = {};
                 data.forEach(r => {
-                    const day = parseInt(r.transaction_date.split('-')[2]); // Get Day part
+                    const day = parseInt(r.transaction_date.split('-')[2]);
                     if (!map[day]) map[day] = {s:0, q:0};
                     map[day].s += Number(r.total_amount);
                     map[day].q += Number(r.quantity);
@@ -449,7 +446,6 @@
             if(charts.compSales) charts.compSales.destroy();
             if(charts.compQty) charts.compQty.destroy();
 
-            // CHART CONFIG - LINE CHART
             const lineOpts = (type) => ({ 
                 responsive: true, 
                 maintainAspectRatio: false, 
@@ -499,7 +495,7 @@
             });
         };
 
-        // --- P&L (UPDATED GP DEDUCTION DISPLAY) ---
+        // --- P&L (UPDATED GP DEDUCTION DISPLAY & SORTING) ---
         async function loadPnLMonth() {
             const m = document.getElementById('pnlMonth').value; if(!m) return;
             const [y, mo] = m.split('-'); const data = await fetchData(`${y}-${mo}-01`, new Date(y, mo, 0).toISOString().split('T')[0]);
@@ -519,12 +515,24 @@
                 if(!report[grp]) return;
                 const color = grp==='Moshi'?'pink':(grp==='B2S'?'blue':'orange');
                 let rows = ''; let total = 0;
-                Object.entries(report[grp]).forEach(([br, d]) => {
+                
+                // SORTING: Extract number from branch name
+                const sortedEntries = Object.entries(report[grp]).sort((a,b) => {
+                     const valA = parseInt(a[0].match(/^\d+/)?.[0] || "0");
+                     const valB = parseInt(b[0].match(/^\d+/)?.[0] || "0");
+                     return valA - valB;
+                });
+
+                sortedEntries.forEach(([br, d]) => {
                     total += d.s; const setting = costs[br] || {rent:0, gp:0};
                     const gpDed = d.s * (setting.gp / 100);
                     const profit = d.s - setting.rent - gpDed;
-                    // FIXED: Added GP Deduction value display
-                    rows += `<tr class="border-b hover:bg-slate-50 text-sm"><td class="py-2 px-4">${br}</td><td class="text-right font-mono">${cur.format(d.s)}</td><td class="text-right font-mono text-blue-600">${num.format(d.q)}</td><td class="text-right text-slate-500">${cur.format(setting.rent)}</td><td class="text-right text-slate-500">${setting.gp}% <span class="text-xs text-red-500 ml-1">(-${cur.format(gpDed)})</span></td><td class="text-right font-bold font-mono ${profit>=0?'text-emerald-600':'text-red-600'}">${cur.format(profit)}</td></tr>`;
+
+                    // CONDITIONAL DISPLAY FOR RENT & GP DEDUCTION
+                    const rentDedDisplay = setting.rent > 0 ? ` <span class="text-xs text-red-500 ml-1">(-${cur.format(setting.rent)})</span>` : '';
+                    const gpDedDisplay = gpDed > 0 ? ` <span class="text-xs text-red-500 ml-1">(-${cur.format(gpDed)})</span>` : '';
+
+                    rows += `<tr class="border-b hover:bg-slate-50 text-sm"><td class="py-2 px-4">${br}</td><td class="text-right font-mono">${cur.format(d.s)}</td><td class="text-right font-mono text-blue-600">${num.format(d.q)}</td><td class="text-right text-slate-500">${cur.format(setting.rent)}${rentDedDisplay}</td><td class="text-right text-slate-500">${setting.gp}%${gpDedDisplay}</td><td class="text-right font-bold font-mono ${profit>=0?'text-emerald-600':'text-red-600'}">${cur.format(profit)}</td></tr>`;
                 });
                 container.innerHTML += `<div class="bg-white rounded-xl border border-${color}-200 mb-6 overflow-hidden"><div class="bg-${color}-50 px-6 py-3 font-bold text-${color}-800"><span>${grp} Group</span></div><table class="w-full"><thead><tr class="text-xs bg-slate-50 text-slate-500"><th class="text-left px-4 py-2">Branch</th><th class="text-right px-4">Sales</th><th class="text-right px-4">Qty</th><th class="text-right px-4">Rent</th><th class="text-right px-4">GP% (Deduction)</th><th class="text-right px-4">Net</th></tr></thead><tbody>${rows}</tbody></table></div>`;
             });
@@ -568,7 +576,6 @@
 
         window.toggleRankingModal = () => { const m=document.getElementById('rankingModal'); m.classList.toggle('opacity-0'); m.classList.toggle('pointer-events-none'); document.body.classList.toggle('modal-active'); };
         window.closeModal = () => toggleRankingModal();
-        // FIXED: SwitchTab Logic to handle Active Class
         window.switchTab = (t) => { 
             ['dashboard', 'compare', 'pnl', 'branch', 'cost'].forEach(x => {
                 document.getElementById(`view-${x}`).classList.add('hidden');
