@@ -16,6 +16,7 @@
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .group-card { transition: all 0.2s; }
         .group-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .animate-pulse-fast { animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
@@ -47,7 +48,7 @@
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <h2 class="font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <svg class="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                1. Import Data (Multi-Select Supported)
+                1. Import Data (Select Multiple Files)
             </h2>
             <div class="flex gap-4 items-center">
                 <!-- Added 'multiple' attribute -->
@@ -57,14 +58,15 @@
             <div id="progressBox" class="hidden mt-4">
                 <div class="flex justify-between text-xs text-slate-500 mb-1"><span id="currentFileText">Processing...</span><span id="progressText">0%</span></div>
                 <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden"><div id="progressBar" class="bg-indigo-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div></div>
+                <p class="text-xs text-orange-500 mt-1">*Duplicate records will be skipped automatically.</p>
             </div>
         </section>
 
-        <!-- 2. LOAD & FILTER -->
+        <!-- 2. LOAD & FILTER (V.10 Loop Logic) -->
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="font-bold text-slate-900">2. Load & Filter</h2>
-                <span id="totalRecords" class="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">Records: 0</span>
+                <span id="recordCountDisplay" class="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">Records: 0</span>
             </div>
             
             <div class="flex flex-wrap gap-4 items-end">
@@ -78,14 +80,14 @@
             </div>
         </section>
 
-        <!-- 3. MAIN DASHBOARD (Global) -->
+        <!-- 3. DASHBOARD -->
         <div id="dashboard" class="space-y-8 opacity-50 pointer-events-none transition-opacity duration-500">
             
-            <!-- Global KPIs -->
+            <!-- Global KPIs (V.10 Feature) -->
             <div>
-                <h3 class="text-lg font-bold text-slate-800 mb-4 px-1">Overview (All Groups)</h3>
+                <h3 class="text-lg font-bold text-slate-800 mb-4 px-1">Global Overview</h3>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="bg-gradient-to-br from-indigo-500 to-blue-600 p-6 rounded-xl shadow-lg text-white">
+                    <div class="bg-gradient-to-br from-slate-800 to-slate-700 p-6 rounded-xl shadow-lg text-white">
                         <p class="text-sm font-medium opacity-80">Total Sales</p>
                         <p class="text-3xl font-bold mt-1" id="kpiSales">0.00</p>
                     </div>
@@ -100,14 +102,26 @@
                 </div>
             </div>
 
-            <!-- GROUP ANALYSIS SECTION -->
+            <!-- Global Charts (V.10 Feature) -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="font-bold mb-4">Sales Trend</h3>
+                    <div class="h-64"><canvas id="mainChart"></canvas></div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col">
+                    <h3 class="font-bold mb-4">Weekly Stats</h3>
+                    <div class="h-40 mb-2"><canvas id="weeklyChart"></canvas></div>
+                    <div class="flex-1 overflow-auto"><table class="w-full text-sm"><tbody id="weekTable"></tbody></table></div>
+                </div>
+            </div>
+
+            <!-- GROUP ANALYSIS (V.11 Feature) -->
             <div>
-                <div class="flex items-center gap-2 mb-6 px-1">
+                <div class="flex items-center gap-2 mb-6 px-1 mt-8">
                     <svg class="w-6 h-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                    <h3 class="text-xl font-bold text-slate-800">Branch Group Analysis</h3>
+                    <h3 class="text-xl font-bold text-slate-800">Group Performance</h3>
                 </div>
 
-                <!-- Group Cards Container -->
                 <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
                     
                     <!-- 1. MOSHI GROUP -->
@@ -121,16 +135,9 @@
                                 <div><p class="text-xs text-slate-500 uppercase">Sales</p><p class="text-xl font-bold text-slate-800" id="moshiSales">0</p></div>
                                 <div><p class="text-xs text-slate-500 uppercase">Avg/Sheet</p><p class="text-xl font-bold text-slate-800" id="moshiAvg">0</p></div>
                             </div>
-                            <!-- Tables -->
                             <div class="space-y-4">
-                                <div>
-                                    <p class="text-xs font-bold text-slate-400 uppercase mb-2">Top 5 Products</p>
-                                    <table class="w-full text-xs"><tbody id="moshiProdTable"></tbody></table>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-bold text-slate-400 uppercase mb-2">Top 5 Branches</p>
-                                    <table class="w-full text-xs"><tbody id="moshiBranchTable"></tbody></table>
-                                </div>
+                                <div><p class="text-xs font-bold text-slate-400 uppercase mb-2">Top Products</p><table class="w-full text-xs"><tbody id="moshiProdTable"></tbody></table></div>
+                                <div><p class="text-xs font-bold text-slate-400 uppercase mb-2">Top Branches</p><table class="w-full text-xs"><tbody id="moshiBranchTable"></tbody></table></div>
                             </div>
                         </div>
                     </div>
@@ -146,16 +153,9 @@
                                 <div><p class="text-xs text-slate-500 uppercase">Sales</p><p class="text-xl font-bold text-slate-800" id="b2sSales">0</p></div>
                                 <div><p class="text-xs text-slate-500 uppercase">Avg/Sheet</p><p class="text-xl font-bold text-slate-800" id="b2sAvg">0</p></div>
                             </div>
-                            <!-- Tables -->
                             <div class="space-y-4">
-                                <div>
-                                    <p class="text-xs font-bold text-slate-400 uppercase mb-2">Top 5 Products</p>
-                                    <table class="w-full text-xs"><tbody id="b2sProdTable"></tbody></table>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-bold text-slate-400 uppercase mb-2">Top 5 Branches</p>
-                                    <table class="w-full text-xs"><tbody id="b2sBranchTable"></tbody></table>
-                                </div>
+                                <div><p class="text-xs font-bold text-slate-400 uppercase mb-2">Top Products</p><table class="w-full text-xs"><tbody id="b2sProdTable"></tbody></table></div>
+                                <div><p class="text-xs font-bold text-slate-400 uppercase mb-2">Top Branches</p><table class="w-full text-xs"><tbody id="b2sBranchTable"></tbody></table></div>
                             </div>
                         </div>
                     </div>
@@ -171,16 +171,9 @@
                                 <div><p class="text-xs text-slate-500 uppercase">Sales</p><p class="text-xl font-bold text-slate-800" id="wanyenSales">0</p></div>
                                 <div><p class="text-xs text-slate-500 uppercase">Avg/Sheet</p><p class="text-xl font-bold text-slate-800" id="wanyenAvg">0</p></div>
                             </div>
-                            <!-- Tables -->
                             <div class="space-y-4">
-                                <div>
-                                    <p class="text-xs font-bold text-slate-400 uppercase mb-2">Top 5 Products</p>
-                                    <table class="w-full text-xs"><tbody id="wanyenProdTable"></tbody></table>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-bold text-slate-400 uppercase mb-2">Top 5 Branches</p>
-                                    <table class="w-full text-xs"><tbody id="wanyenBranchTable"></tbody></table>
-                                </div>
+                                <div><p class="text-xs font-bold text-slate-400 uppercase mb-2">Top Products</p><table class="w-full text-xs"><tbody id="wanyenProdTable"></tbody></table></div>
+                                <div><p class="text-xs font-bold text-slate-400 uppercase mb-2">Top Branches</p><table class="w-full text-xs"><tbody id="wanyenBranchTable"></tbody></table></div>
                             </div>
                         </div>
                     </div>
@@ -197,8 +190,9 @@
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxnYW9iZ3hleWJtbHJic2pnbmZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3Nzk1OTYsImV4cCI6MjA4MDM1NTU5Nn0.rmGercp5u829OkeqzDq9R2wlR7lA3b2P4po2CZTXOZM';
         const TABLE = 'sales_records';
 
-        let supabase, GLOBAL_DATA = [];
+        let supabase, GLOBAL_DATA = [], charts = {};
 
+        // --- INIT ---
         window.onload = async () => {
             supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
             const { count, error } = await supabase.from(TABLE).select('*', { count: 'exact', head: true });
@@ -225,41 +219,76 @@
             }
         }
 
-        // --- 1. CORE: LOAD & GROUP ---
+        // --- 1. CORE LOGIC: FETCH ALL LOOP (From V.10) ---
         async function loadAllDataAndFilter() {
             const btn = document.getElementById('loadBtn');
+            const countDisplay = document.getElementById('recordCountDisplay');
+            
+            // If data exists, just filter
             if (GLOBAL_DATA.length > 0) { filterAndRender(); return; }
 
-            btn.disabled = true; btn.textContent = "Fetching...";
+            btn.disabled = true; 
+            btn.innerHTML = `<span class="animate-pulse">Fetching DB...</span>`;
             document.body.style.cursor = 'wait';
 
-            let allRows = [], from = 0, pageSize = 1000, keepFetching = true;
+            let allRows = [];
+            let from = 0;
+            const pageSize = 1000;
+            let keepFetching = true;
+
             try {
+                // Loop until no more data (V.10 Logic)
                 while(keepFetching) {
-                    const { data, error } = await supabase.from(TABLE).select('*').range(from, from + pageSize - 1).order('id', {ascending: true});
+                    countDisplay.innerText = `Loading... ${allRows.length}`;
+                    
+                    const { data, error } = await supabase
+                        .from(TABLE)
+                        .select('*')
+                        .range(from, from + pageSize - 1)
+                        .order('id', {ascending: true});
+
                     if (error) throw error;
-                    if (data.length) { allRows = allRows.concat(data); from += pageSize; }
-                    if (data.length < pageSize) keepFetching = false;
+
+                    if (data.length > 0) {
+                        allRows = allRows.concat(data);
+                        from += pageSize;
+                    } 
+                    
+                    if (data.length < pageSize) {
+                        keepFetching = false; // End of data
+                    }
                 }
+
                 GLOBAL_DATA = allRows;
-                document.getElementById('totalRecords').innerText = `Records: ${GLOBAL_DATA.length}`;
-                btn.textContent = "Load Data"; btn.disabled = false;
+                countDisplay.innerText = `Records: ${GLOBAL_DATA.length}`;
+                btn.innerHTML = "Load Data";
+                btn.disabled = false;
                 document.body.style.cursor = 'default';
                 document.getElementById('dashboard').classList.remove('opacity-50', 'pointer-events-none');
                 filterAndRender();
-            } catch (err) { alert(err.message); btn.disabled=false; }
+
+            } catch (err) {
+                console.error(err);
+                alert("Fetch Error: " + err.message);
+                btn.disabled = false;
+                btn.innerHTML = "Retry Load";
+                document.body.style.cursor = 'default';
+            }
         }
 
         function filterAndRender() {
             const sDate = document.getElementById('startDate').value;
             const eDate = document.getElementById('endDate').value;
-            const data = GLOBAL_DATA.filter(r => r.transaction_date >= sDate && r.transaction_date <= eDate);
-            processData(data);
+            if(!sDate || !eDate) return;
+
+            // Client-side filtering
+            const filtered = GLOBAL_DATA.filter(r => r.transaction_date >= sDate && r.transaction_date <= eDate);
+            processData(filtered);
         }
 
         function processData(data) {
-            // Stats Structure
-            const global = { sum:0, count:0 };
+            // Buckets
+            const global = { sum:0, count:0, daily:{}, weekly:[0,0,0,0,0,0,0] };
             const groups = {
                 'Moshi': { sum:0, count:0, prod:{}, branch:{} },
                 'B2S': { sum:0, count:0, prod:{}, branch:{} },
@@ -271,20 +300,23 @@
                 const qty = Number(r.quantity)||0;
                 const prod = r.product || "Unknown";
                 const branch = r.branch_name || "Unknown";
+                const date = r.transaction_date;
                 
-                // Global
+                // 1. Global Stats (For Main Chart)
                 global.sum += val; global.count += qty;
+                global.daily[date] = (global.daily[date]||0) + val;
+                const dayIdx = new Date(r.timestamp).getDay();
+                global.weekly[dayIdx] += val;
 
-                // Group Logic
+                // 2. Group Logic
                 let grp = 'Wanyen';
                 const bUpper = branch.toUpperCase();
                 if(bUpper.includes('MOSHI') || bUpper.includes('MS')) grp = 'Moshi';
                 else if(bUpper.includes('B2S')) grp = 'B2S';
 
-                // Add to Group
+                // 3. Add to Group
                 const g = groups[grp];
                 g.sum += val; g.count += qty;
-                
                 if(!g.prod[prod]) g.prod[prod] = 0; g.prod[prod] += val;
                 if(!g.branch[branch]) g.branch[branch] = 0; g.branch[branch] += val;
             });
@@ -297,6 +329,8 @@
             document.getElementById('kpiSales').innerText = cur.format(global.sum);
             document.getElementById('kpiQty').innerText = num.format(global.count);
             document.getElementById('kpiAvg').innerText = cur.format(global.count ? global.sum/global.count : 0);
+            
+            renderCharts(global.daily, global.weekly);
 
             // Group UI Helper
             const renderGroup = (key, prefix) => {
@@ -304,13 +338,11 @@
                 document.getElementById(prefix+'Sales').innerText = cur.format(g.sum);
                 document.getElementById(prefix+'Avg').innerText = cur.format(g.count ? g.sum/g.count : 0);
                 
-                // Top Products
                 const sortedProd = Object.entries(g.prod).sort((a,b)=>b[1]-a[1]).slice(0,5);
                 document.getElementById(prefix+'ProdTable').innerHTML = sortedProd.map(([k,v]) => 
                     `<tr class="border-b border-slate-50"><td class="py-1 text-slate-600 truncate max-w-[120px]" title="${k}">${k}</td><td class="text-right font-mono text-slate-800">${cur.format(v)}</td></tr>`
                 ).join('');
 
-                // Top Branches
                 const sortedBranch = Object.entries(g.branch).sort((a,b)=>b[1]-a[1]).slice(0,5);
                 document.getElementById(prefix+'BranchTable').innerHTML = sortedBranch.map(([k,v]) => 
                     `<tr class="border-b border-slate-50"><td class="py-1 text-slate-600 truncate max-w-[120px]" title="${k}">${k}</td><td class="text-right font-mono text-slate-800">${cur.format(v)}</td></tr>`
@@ -322,6 +354,37 @@
             renderGroup('Wanyen', 'wanyen');
         }
 
+        function renderCharts(dailyStats, weeklyStats) {
+            const days = Object.keys(dailyStats).sort();
+            const dailyData = days.map(d => dailyStats[d]);
+            
+            if(charts.main) charts.main.destroy();
+            charts.main = new Chart(document.getElementById('mainChart'), {
+                type: 'line',
+                data: {
+                    labels: days,
+                    datasets: [{ label: 'Sales', data: dailyData, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.1)', fill: true, tension: 0.3 }]
+                },
+                options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+            });
+
+            const wLabels = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+            const rotData = [...weeklyStats.slice(1), weeklyStats[0]];
+            const rotLabels = [...wLabels.slice(1), wLabels[0]];
+            const cur = new Intl.NumberFormat('en-US', {style:'currency', currency:'THB'});
+
+            if(charts.week) charts.week.destroy();
+            charts.week = new Chart(document.getElementById('weeklyChart'), {
+                type: 'bar',
+                data: { labels: rotLabels, datasets: [{ data: rotData, backgroundColor: '#10b981', borderRadius: 4 }] },
+                options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}}} }
+            });
+
+            document.getElementById('weekTable').innerHTML = rotLabels.map((d, i) => 
+                `<tr class="border-b"><td class="py-2 px-2 text-slate-600">${d}</td><td class="text-right font-mono text-slate-900">${cur.format(rotData[i])}</td></tr>`
+            ).join('');
+        }
+
         // --- 2. MULTI-FILE IMPORT ---
         document.getElementById('importBtn').onclick = async () => {
             const files = document.getElementById('csvFileInput').files;
@@ -331,7 +394,6 @@
             btn.disabled = true; 
             document.getElementById('progressBox').classList.remove('hidden');
 
-            // Process sequentially
             for(let i=0; i<files.length; i++) {
                 const file = files[i];
                 document.getElementById('currentFileText').innerText = `Processing: ${file.name} (${i+1}/${files.length})`;
@@ -339,7 +401,7 @@
             }
 
             alert("All files processed!");
-            GLOBAL_DATA = []; // Clear cache to reload
+            GLOBAL_DATA = []; // Clear cache to force reload
             loadAllDataAndFilter();
             btn.disabled = false; btn.innerText = "Upload";
             setTimeout(() => document.getElementById('progressBox').classList.add('hidden'), 3000);
@@ -352,11 +414,10 @@
                     complete: async (res) => {
                         const rows = res.data.map(transform).filter(r => r);
                         if(rows.length) {
-                            // Batch Insert (Ignore Duplicates logic handled by SQL Constraint)
                             const batch = 500;
                             for(let j=0; j<Math.ceil(rows.length/batch); j++) {
                                 const chunk = rows.slice(j*batch, (j+1)*batch);
-                                // Using insert with ignoreDuplicates (requires SQL Constraint)
+                                // UPSERT with Ignore Duplicates (Works if SQL Constraint exists)
                                 await supabase.from(TABLE).upsert(chunk, { onConflict: 'transaction_date, transaction_time, branch_name, product, total_amount', ignoreDuplicates: true });
                                 
                                 const pct = Math.round(((j+1)/(rows.length/batch))*100);
