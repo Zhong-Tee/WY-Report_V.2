@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SalesPulse V.11 (Multi-File & Grouping)</title>
+    <title>SalesPulse V.12 (Auto-Range & Clean)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -16,25 +16,25 @@
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .group-card { transition: all 0.2s; }
         .group-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
-        .animate-pulse-fast { animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
 
-    <!-- Navbar -->
     <nav class="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
             <div class="flex items-center gap-3">
                 <div class="bg-indigo-600 text-white p-1.5 rounded-lg">
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-slate-900">SalesPulse</h1>
-                    <p class="text-[10px] text-slate-500 uppercase tracking-widest">V.11 Grouping Intelligence</p>
+                    <p class="text-[10px] text-slate-500 uppercase tracking-widest">V.12 Auto-Range</p>
                 </div>
             </div>
             <div class="flex items-center gap-4">
-                <button id="clearDataBtn" class="text-xs text-red-500 font-bold hover:text-red-700 hidden">RESET DB</button>
+                <button id="clearDataBtn" class="px-3 py-1 bg-red-50 text-red-600 text-xs font-bold rounded hover:bg-red-100 border border-red-200 hidden">
+                    🗑️ DELETE ALL DATA
+                </button>
                 <div id="dbStatus" class="flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-xs font-medium text-slate-500">
                     <div class="w-2 h-2 rounded-full bg-slate-400"></div> Connecting...
                 </div>
@@ -48,42 +48,42 @@
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <h2 class="font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <svg class="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                1. Import Data (Select Multiple Files)
+                1. Import Data
             </h2>
             <div class="flex gap-4 items-center">
-                <!-- Added 'multiple' attribute -->
                 <input type="file" id="csvFileInput" accept=".csv" multiple class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 border rounded-lg cursor-pointer">
                 <button id="importBtn" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 font-medium transition-all shadow-sm" disabled>Upload</button>
             </div>
             <div id="progressBox" class="hidden mt-4">
                 <div class="flex justify-between text-xs text-slate-500 mb-1"><span id="currentFileText">Processing...</span><span id="progressText">0%</span></div>
                 <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden"><div id="progressBar" class="bg-indigo-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div></div>
-                <p class="text-xs text-orange-500 mt-1">*Duplicate records will be skipped automatically.</p>
             </div>
         </section>
 
-        <!-- 2. LOAD & FILTER (V.10 Loop Logic) -->
+        <!-- 2. LOAD & FILTER -->
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="font-bold text-slate-900">2. Load & Filter</h2>
+                <h2 class="font-bold text-slate-900">2. Data Controls</h2>
                 <span id="recordCountDisplay" class="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">Records: 0</span>
             </div>
             
             <div class="flex flex-wrap gap-4 items-end">
                 <div><label class="block text-xs font-bold text-slate-500 mb-1">Start Date</label><input type="date" id="startDate" class="border p-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"></div>
                 <div><label class="block text-xs font-bold text-slate-500 mb-1">End Date</label><input type="date" id="endDate" class="border p-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"></div>
-                <button id="loadBtn" class="px-6 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 font-medium transition-all shadow-lg">Load Data</button>
+                <button id="loadBtn" class="px-6 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 font-medium transition-all shadow-lg">
+                    Load & Refresh
+                </button>
                 <div class="flex gap-2 ml-auto">
-                    <button onclick="setDateRange('1m')" class="px-3 py-1.5 border rounded hover:bg-slate-50 text-xs font-medium">This Month</button>
-                    <button onclick="setDateRange('1y')" class="px-3 py-1.5 border rounded hover:bg-slate-50 text-xs font-medium">All Time</button>
+                    <span class="text-xs text-slate-400 self-center mr-2">Quick Set:</span>
+                    <button onclick="setDateRange('auto')" class="px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded hover:bg-indigo-100 text-xs font-bold">Auto Range (Max)</button>
                 </div>
             </div>
         </section>
 
-        <!-- 3. DASHBOARD -->
+        <!-- 3. MAIN DASHBOARD -->
         <div id="dashboard" class="space-y-8 opacity-50 pointer-events-none transition-opacity duration-500">
             
-            <!-- Global KPIs (V.10 Feature) -->
+            <!-- Global KPIs -->
             <div>
                 <h3 class="text-lg font-bold text-slate-800 mb-4 px-1">Global Overview</h3>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -102,7 +102,7 @@
                 </div>
             </div>
 
-            <!-- Global Charts (V.10 Feature) -->
+            <!-- Global Charts -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                     <h3 class="font-bold mb-4">Sales Trend</h3>
@@ -115,69 +115,56 @@
                 </div>
             </div>
 
-            <!-- GROUP ANALYSIS (V.11 Feature) -->
+            <!-- GROUP ANALYSIS -->
             <div>
                 <div class="flex items-center gap-2 mb-6 px-1 mt-8">
                     <svg class="w-6 h-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                    <h3 class="text-xl font-bold text-slate-800">Group Performance</h3>
+                    <h3 class="text-xl font-bold text-slate-800">Group Analysis</h3>
                 </div>
 
                 <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                    
-                    <!-- 1. MOSHI GROUP -->
+                    <!-- Moshi -->
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden group-card flex flex-col">
-                        <div class="bg-pink-50 px-6 py-4 border-b border-pink-100 flex justify-between items-center">
-                            <h4 class="font-bold text-pink-700">Moshi / MS</h4>
-                            <span class="bg-pink-100 text-pink-700 text-xs font-bold px-2 py-1 rounded">Group A</span>
-                        </div>
-                        <div class="p-6 flex-1 flex flex-col gap-6">
+                        <div class="bg-pink-50 px-6 py-4 border-b border-pink-100 flex justify-between items-center"><h4 class="font-bold text-pink-700">Moshi / MS</h4></div>
+                        <div class="p-6 flex-1 flex flex-col gap-4">
                             <div class="grid grid-cols-2 gap-4">
-                                <div><p class="text-xs text-slate-500 uppercase">Sales</p><p class="text-xl font-bold text-slate-800" id="moshiSales">0</p></div>
-                                <div><p class="text-xs text-slate-500 uppercase">Avg/Sheet</p><p class="text-xl font-bold text-slate-800" id="moshiAvg">0</p></div>
+                                <div><p class="text-xs text-slate-500">Sales</p><p class="text-xl font-bold text-slate-800" id="moshiSales">0</p></div>
+                                <div><p class="text-xs text-slate-500">Avg</p><p class="text-xl font-bold text-slate-800" id="moshiAvg">0</p></div>
                             </div>
-                            <div class="space-y-4">
-                                <div><p class="text-xs font-bold text-slate-400 uppercase mb-2">Top Products</p><table class="w-full text-xs"><tbody id="moshiProdTable"></tbody></table></div>
-                                <div><p class="text-xs font-bold text-slate-400 uppercase mb-2">Top Branches</p><table class="w-full text-xs"><tbody id="moshiBranchTable"></tbody></table></div>
+                            <div class="space-y-4 mt-2">
+                                <div><p class="text-xs font-bold text-slate-400 uppercase mb-1">Top Products</p><table class="w-full text-xs"><tbody id="moshiProdTable"></tbody></table></div>
+                                <div><p class="text-xs font-bold text-slate-400 uppercase mb-1">Top Branches</p><table class="w-full text-xs"><tbody id="moshiBranchTable"></tbody></table></div>
                             </div>
                         </div>
                     </div>
-
-                    <!-- 2. B2S GROUP -->
+                    <!-- B2S -->
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden group-card flex flex-col">
-                        <div class="bg-blue-50 px-6 py-4 border-b border-blue-100 flex justify-between items-center">
-                            <h4 class="font-bold text-blue-700">B2S</h4>
-                            <span class="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded">Group B</span>
-                        </div>
-                        <div class="p-6 flex-1 flex flex-col gap-6">
+                        <div class="bg-blue-50 px-6 py-4 border-b border-blue-100 flex justify-between items-center"><h4 class="font-bold text-blue-700">B2S</h4></div>
+                        <div class="p-6 flex-1 flex flex-col gap-4">
                             <div class="grid grid-cols-2 gap-4">
-                                <div><p class="text-xs text-slate-500 uppercase">Sales</p><p class="text-xl font-bold text-slate-800" id="b2sSales">0</p></div>
-                                <div><p class="text-xs text-slate-500 uppercase">Avg/Sheet</p><p class="text-xl font-bold text-slate-800" id="b2sAvg">0</p></div>
+                                <div><p class="text-xs text-slate-500">Sales</p><p class="text-xl font-bold text-slate-800" id="b2sSales">0</p></div>
+                                <div><p class="text-xs text-slate-500">Avg</p><p class="text-xl font-bold text-slate-800" id="b2sAvg">0</p></div>
                             </div>
-                            <div class="space-y-4">
-                                <div><p class="text-xs font-bold text-slate-400 uppercase mb-2">Top Products</p><table class="w-full text-xs"><tbody id="b2sProdTable"></tbody></table></div>
-                                <div><p class="text-xs font-bold text-slate-400 uppercase mb-2">Top Branches</p><table class="w-full text-xs"><tbody id="b2sBranchTable"></tbody></table></div>
+                            <div class="space-y-4 mt-2">
+                                <div><p class="text-xs font-bold text-slate-400 uppercase mb-1">Top Products</p><table class="w-full text-xs"><tbody id="b2sProdTable"></tbody></table></div>
+                                <div><p class="text-xs font-bold text-slate-400 uppercase mb-1">Top Branches</p><table class="w-full text-xs"><tbody id="b2sBranchTable"></tbody></table></div>
                             </div>
                         </div>
                     </div>
-
-                    <!-- 3. WANYEN (Others) -->
+                    <!-- Wanyen -->
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden group-card flex flex-col">
-                        <div class="bg-orange-50 px-6 py-4 border-b border-orange-100 flex justify-between items-center">
-                            <h4 class="font-bold text-orange-700">Wanyen / Others</h4>
-                            <span class="bg-orange-100 text-orange-700 text-xs font-bold px-2 py-1 rounded">Group C</span>
-                        </div>
-                        <div class="p-6 flex-1 flex flex-col gap-6">
+                        <div class="bg-orange-50 px-6 py-4 border-b border-orange-100 flex justify-between items-center"><h4 class="font-bold text-orange-700">Wanyen / Others</h4></div>
+                        <div class="p-6 flex-1 flex flex-col gap-4">
                             <div class="grid grid-cols-2 gap-4">
-                                <div><p class="text-xs text-slate-500 uppercase">Sales</p><p class="text-xl font-bold text-slate-800" id="wanyenSales">0</p></div>
-                                <div><p class="text-xs text-slate-500 uppercase">Avg/Sheet</p><p class="text-xl font-bold text-slate-800" id="wanyenAvg">0</p></div>
+                                <div><p class="text-xs text-slate-500">Sales</p><p class="text-xl font-bold text-slate-800" id="wanyenSales">0</p></div>
+                                <div><p class="text-xs text-slate-500">Avg</p><p class="text-xl font-bold text-slate-800" id="wanyenAvg">0</p></div>
                             </div>
-                            <div class="space-y-4">
-                                <div><p class="text-xs font-bold text-slate-400 uppercase mb-2">Top Products</p><table class="w-full text-xs"><tbody id="wanyenProdTable"></tbody></table></div>
-                                <div><p class="text-xs font-bold text-slate-400 uppercase mb-2">Top Branches</p><table class="w-full text-xs"><tbody id="wanyenBranchTable"></tbody></table></div>
+                            <div class="space-y-4 mt-2">
+                                <div><p class="text-xs font-bold text-slate-400 uppercase mb-1">Top Products</p><table class="w-full text-xs"><tbody id="wanyenProdTable"></tbody></table></div>
+                                <div><p class="text-xs font-bold text-slate-400 uppercase mb-1">Top Branches</p><table class="w-full text-xs"><tbody id="wanyenBranchTable"></tbody></table></div>
                             </div>
                         </div>
                     </div>
-
                 </div>
             </div>
 
@@ -185,20 +172,17 @@
     </main>
 
     <script>
-        // CONFIG
         const SUPABASE_URL = 'https://lgaobgxeybmlrbsjgnfh.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxnYW9iZ3hleWJtbHJic2pnbmZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3Nzk1OTYsImV4cCI6MjA4MDM1NTU5Nn0.rmGercp5u829OkeqzDq9R2wlR7lA3b2P4po2CZTXOZM';
         const TABLE = 'sales_records';
 
         let supabase, GLOBAL_DATA = [], charts = {};
 
-        // --- INIT ---
         window.onload = async () => {
             supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
             const { count, error } = await supabase.from(TABLE).select('*', { count: 'exact', head: true });
             if(!error) {
                 updateStatus(true, count);
-                setDateRange('1y');
                 loadAllDataAndFilter();
             } else {
                 updateStatus(false, error.message);
@@ -208,7 +192,7 @@
         function updateStatus(connected, msg) {
             const el = document.getElementById('dbStatus');
             if(connected) {
-                el.innerHTML = `<div class="w-2 h-2 rounded-full bg-green-500"></div> Connected (${msg} Rows)`;
+                el.innerHTML = `<div class="w-2 h-2 rounded-full bg-green-500"></div> Connected (${msg})`;
                 el.className = "flex items-center gap-2 px-3 py-1 bg-green-50 rounded-full text-xs font-medium text-green-700 border border-green-200";
                 document.getElementById('importBtn').disabled = false;
                 document.getElementById('clearDataBtn').classList.remove('hidden');
@@ -219,75 +203,49 @@
             }
         }
 
-        // --- 1. CORE LOGIC: FETCH ALL LOOP (From V.10) ---
+        // --- 1. CORE: FETCH ALL & AUTO RANGE ---
         async function loadAllDataAndFilter() {
             const btn = document.getElementById('loadBtn');
-            const countDisplay = document.getElementById('recordCountDisplay');
             
-            // If data exists, just filter
+            // If data exists, just re-filter
             if (GLOBAL_DATA.length > 0) { filterAndRender(); return; }
 
-            btn.disabled = true; 
-            btn.innerHTML = `<span class="animate-pulse">Fetching DB...</span>`;
+            btn.disabled = true; btn.innerHTML = `Fetching...`;
             document.body.style.cursor = 'wait';
 
-            let allRows = [];
-            let from = 0;
-            const pageSize = 1000;
-            let keepFetching = true;
-
+            let allRows = [], from = 0, pageSize = 1000, keepFetching = true;
             try {
-                // Loop until no more data (V.10 Logic)
                 while(keepFetching) {
-                    countDisplay.innerText = `Loading... ${allRows.length}`;
-                    
-                    const { data, error } = await supabase
-                        .from(TABLE)
-                        .select('*')
-                        .range(from, from + pageSize - 1)
-                        .order('id', {ascending: true});
-
+                    const { data, error } = await supabase.from(TABLE).select('*').range(from, from + pageSize - 1).order('id', {ascending: true});
                     if (error) throw error;
-
-                    if (data.length > 0) {
-                        allRows = allRows.concat(data);
-                        from += pageSize;
-                    } 
-                    
-                    if (data.length < pageSize) {
-                        keepFetching = false; // End of data
-                    }
+                    if (data.length) { allRows = allRows.concat(data); from += pageSize; }
+                    if (data.length < pageSize) keepFetching = false;
+                }
+                GLOBAL_DATA = allRows;
+                document.getElementById('recordCountDisplay').innerText = `Records: ${GLOBAL_DATA.length}`;
+                
+                // AUTO DATE RANGE (THE FIX)
+                if(GLOBAL_DATA.length > 0) {
+                    const dates = GLOBAL_DATA.map(r => r.transaction_date).sort();
+                    document.getElementById('startDate').value = dates[0];
+                    document.getElementById('endDate').value = dates[dates.length-1];
                 }
 
-                GLOBAL_DATA = allRows;
-                countDisplay.innerText = `Records: ${GLOBAL_DATA.length}`;
-                btn.innerHTML = "Load Data";
-                btn.disabled = false;
+                btn.innerHTML = "Load & Refresh"; btn.disabled = false;
                 document.body.style.cursor = 'default';
                 document.getElementById('dashboard').classList.remove('opacity-50', 'pointer-events-none');
                 filterAndRender();
-
-            } catch (err) {
-                console.error(err);
-                alert("Fetch Error: " + err.message);
-                btn.disabled = false;
-                btn.innerHTML = "Retry Load";
-                document.body.style.cursor = 'default';
-            }
+            } catch (err) { alert(err.message); btn.disabled=false; }
         }
 
         function filterAndRender() {
             const sDate = document.getElementById('startDate').value;
             const eDate = document.getElementById('endDate').value;
-            if(!sDate || !eDate) return;
-
-            // Client-side filtering
-            const filtered = GLOBAL_DATA.filter(r => r.transaction_date >= sDate && r.transaction_date <= eDate);
-            processData(filtered);
+            const data = GLOBAL_DATA.filter(r => r.transaction_date >= sDate && r.transaction_date <= eDate);
+            processData(data);
         }
 
         function processData(data) {
-            // Buckets
             const global = { sum:0, count:0, daily:{}, weekly:[0,0,0,0,0,0,0] };
             const groups = {
                 'Moshi': { sum:0, count:0, prod:{}, branch:{} },
@@ -300,78 +258,63 @@
                 const qty = Number(r.quantity)||0;
                 const prod = r.product || "Unknown";
                 const branch = r.branch_name || "Unknown";
-                const date = r.transaction_date;
                 
-                // 1. Global Stats (For Main Chart)
+                // Global
                 global.sum += val; global.count += qty;
-                global.daily[date] = (global.daily[date]||0) + val;
-                const dayIdx = new Date(r.timestamp).getDay();
-                global.weekly[dayIdx] += val;
+                global.daily[r.transaction_date] = (global.daily[r.transaction_date]||0) + val;
+                global.weekly[new Date(r.timestamp).getDay()] += val;
 
-                // 2. Group Logic
+                // Grouping
                 let grp = 'Wanyen';
-                const bUpper = branch.toUpperCase();
-                if(bUpper.includes('MOSHI') || bUpper.includes('MS')) grp = 'Moshi';
-                else if(bUpper.includes('B2S')) grp = 'B2S';
+                const bUp = branch.toUpperCase();
+                if(bUp.includes('MOSHI') || bUp.includes('MS')) grp = 'Moshi';
+                else if(bUp.includes('B2S')) grp = 'B2S';
 
-                // 3. Add to Group
                 const g = groups[grp];
                 g.sum += val; g.count += qty;
                 if(!g.prod[prod]) g.prod[prod] = 0; g.prod[prod] += val;
                 if(!g.branch[branch]) g.branch[branch] = 0; g.branch[branch] += val;
             });
 
-            // Render
+            // Render UI
             const cur = new Intl.NumberFormat('en-US', {style:'currency', currency:'THB'});
             const num = new Intl.NumberFormat('en-US');
 
-            // Global UI
             document.getElementById('kpiSales').innerText = cur.format(global.sum);
             document.getElementById('kpiQty').innerText = num.format(global.count);
             document.getElementById('kpiAvg').innerText = cur.format(global.count ? global.sum/global.count : 0);
             
             renderCharts(global.daily, global.weekly);
 
-            // Group UI Helper
-            const renderGroup = (key, prefix) => {
-                const g = groups[key];
+            ['Moshi', 'B2S', 'Wanyen'].forEach(k => {
+                const prefix = k.toLowerCase();
+                const g = groups[k];
                 document.getElementById(prefix+'Sales').innerText = cur.format(g.sum);
                 document.getElementById(prefix+'Avg').innerText = cur.format(g.count ? g.sum/g.count : 0);
                 
-                const sortedProd = Object.entries(g.prod).sort((a,b)=>b[1]-a[1]).slice(0,5);
-                document.getElementById(prefix+'ProdTable').innerHTML = sortedProd.map(([k,v]) => 
-                    `<tr class="border-b border-slate-50"><td class="py-1 text-slate-600 truncate max-w-[120px]" title="${k}">${k}</td><td class="text-right font-mono text-slate-800">${cur.format(v)}</td></tr>`
+                const mkTable = (obj) => Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([n,v]) => 
+                    `<tr class="border-b border-slate-50"><td class="py-1 truncate max-w-[120px]" title="${n}">${n}</td><td class="text-right font-mono">${cur.format(v)}</td></tr>`
                 ).join('');
-
-                const sortedBranch = Object.entries(g.branch).sort((a,b)=>b[1]-a[1]).slice(0,5);
-                document.getElementById(prefix+'BranchTable').innerHTML = sortedBranch.map(([k,v]) => 
-                    `<tr class="border-b border-slate-50"><td class="py-1 text-slate-600 truncate max-w-[120px]" title="${k}">${k}</td><td class="text-right font-mono text-slate-800">${cur.format(v)}</td></tr>`
-                ).join('');
-            };
-
-            renderGroup('Moshi', 'moshi');
-            renderGroup('B2S', 'b2s');
-            renderGroup('Wanyen', 'wanyen');
+                
+                document.getElementById(prefix+'ProdTable').innerHTML = mkTable(g.prod);
+                document.getElementById(prefix+'BranchTable').innerHTML = mkTable(g.branch);
+            });
         }
 
-        function renderCharts(dailyStats, weeklyStats) {
-            const days = Object.keys(dailyStats).sort();
-            const dailyData = days.map(d => dailyStats[d]);
+        function renderCharts(daily, weekly) {
+            const days = Object.keys(daily).sort();
+            const dData = days.map(d => daily[d]);
             
             if(charts.main) charts.main.destroy();
             charts.main = new Chart(document.getElementById('mainChart'), {
                 type: 'line',
-                data: {
-                    labels: days,
-                    datasets: [{ label: 'Sales', data: dailyData, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.1)', fill: true, tension: 0.3 }]
-                },
+                data: { labels: days, datasets: [{ label: 'Sales', data: dData, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.1)', fill: true }] },
                 options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
             });
 
             const wLabels = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-            const rotData = [...weeklyStats.slice(1), weeklyStats[0]];
+            const rotData = [...weekly.slice(1), weekly[0]];
             const rotLabels = [...wLabels.slice(1), wLabels[0]];
-            const cur = new Intl.NumberFormat('en-US', {style:'currency', currency:'THB'});
 
             if(charts.week) charts.week.destroy();
             charts.week = new Chart(document.getElementById('weeklyChart'), {
@@ -381,93 +324,85 @@
             });
 
             document.getElementById('weekTable').innerHTML = rotLabels.map((d, i) => 
-                `<tr class="border-b"><td class="py-2 px-2 text-slate-600">${d}</td><td class="text-right font-mono text-slate-900">${cur.format(rotData[i])}</td></tr>`
+                `<tr class="border-b"><td class="py-1 text-slate-600">${d}</td><td class="text-right font-mono">${new Intl.NumberFormat('en-US', {style:'currency', currency:'THB'}).format(rotData[i])}</td></tr>`
             ).join('');
         }
 
-        // --- 2. MULTI-FILE IMPORT ---
+        // --- 2. IMPORT ---
         document.getElementById('importBtn').onclick = async () => {
             const files = document.getElementById('csvFileInput').files;
-            if(!files.length) return alert("Select files");
-            
+            if(!files.length) return alert("Select CSV");
             const btn = document.getElementById('importBtn');
             btn.disabled = true; 
             document.getElementById('progressBox').classList.remove('hidden');
 
             for(let i=0; i<files.length; i++) {
                 const file = files[i];
-                document.getElementById('currentFileText').innerText = `Processing: ${file.name} (${i+1}/${files.length})`;
-                await processFile(file);
+                document.getElementById('currentFileText').innerText = `Processing: ${file.name}`;
+                await new Promise(resolve => {
+                    Papa.parse(file, {
+                        header: false, skipEmptyLines: true,
+                        complete: async (res) => {
+                            const rows = res.data.map(transform).filter(r => r);
+                            if(rows.length) {
+                                const batch = 500;
+                                for(let j=0; j<Math.ceil(rows.length/batch); j++) {
+                                    await supabase.from(TABLE).upsert(rows.slice(j*batch, (j+1)*batch), { onConflict: 'transaction_date, transaction_time, branch_name, product, total_amount', ignoreDuplicates: true });
+                                    document.getElementById('progressBar').style.width = Math.round(((j+1)/(rows.length/batch))*100)+"%";
+                                }
+                            }
+                            resolve();
+                        }
+                    });
+                });
             }
-
-            alert("All files processed!");
-            GLOBAL_DATA = []; // Clear cache to force reload
-            loadAllDataAndFilter();
-            btn.disabled = false; btn.innerText = "Upload";
+            
+            alert("Complete!");
+            GLOBAL_DATA = []; loadAllDataAndFilter();
+            btn.disabled = false;
             setTimeout(() => document.getElementById('progressBox').classList.add('hidden'), 3000);
         };
 
-        function processFile(file) {
-            return new Promise((resolve) => {
-                Papa.parse(file, {
-                    header: false, skipEmptyLines: true,
-                    complete: async (res) => {
-                        const rows = res.data.map(transform).filter(r => r);
-                        if(rows.length) {
-                            const batch = 500;
-                            for(let j=0; j<Math.ceil(rows.length/batch); j++) {
-                                const chunk = rows.slice(j*batch, (j+1)*batch);
-                                // UPSERT with Ignore Duplicates (Works if SQL Constraint exists)
-                                await supabase.from(TABLE).upsert(chunk, { onConflict: 'transaction_date, transaction_time, branch_name, product, total_amount', ignoreDuplicates: true });
-                                
-                                const pct = Math.round(((j+1)/(rows.length/batch))*100);
-                                document.getElementById('progressBar').style.width = pct+"%";
-                                document.getElementById('progressText').innerText = pct+"%";
-                            }
-                        }
-                        resolve();
-                    }
-                });
-            });
-        }
-
         function transform(row) {
-            if(row.length < 11) return null; 
+            if(row.length < 11) return null;
             const parts = (row[1]||"").trim().split(" ")[0].split("/");
             if(parts.length!==3) return null;
             let y = parseInt(parts[2]); if(y>2400) y-=543;
             const dt = new Date(y, parseInt(parts[1])-1, parseInt(parts[0]));
             if(isNaN(dt.getTime())) return null;
 
-            const qty = parseInt(row[9]||0);
-            const total = parseFloat((row[10]||"0").replace(/,/g, ""));
+            // Time Fix: 8:0:17 -> 08:00:17
+            let timeStr = (row[1]||"").split(" ")[1] || "00:00:00";
+            timeStr = timeStr.split(':').map(t => t.padStart(2, '0')).join(':');
 
             return {
                 timestamp: dt.toISOString(),
                 transaction_date: dt.toISOString().split('T')[0],
-                transaction_time: (row[1]||"").split(" ")[1] || "00:00:00",
+                transaction_time: timeStr,
                 product: (row[3]||"").trim(),
-                quantity: qty,
-                price_per_sheet: qty ? total/qty : 0,
-                total_amount: total,
+                quantity: parseInt(row[9]||0),
+                price_per_sheet: parseFloat((row[10]||"0").replace(/,/g, "")) / (parseInt(row[9]||1)),
+                total_amount: parseFloat((row[10]||"0").replace(/,/g, "")),
                 payment_type: (row[11]||"").trim(),
                 branch_name: (row[14]||"").trim()
             };
         }
 
-        // UTILS
-        function setDateRange(rng) {
-            const e = new Date(); const s = new Date();
-            if(rng==='1m') s.setMonth(e.getMonth()-1);
-            if(rng==='1y') s.setFullYear(e.getFullYear()-1);
-            document.getElementById('startDate').value = s.toISOString().split('T')[0];
-            document.getElementById('endDate').value = e.toISOString().split('T')[0];
-            if(GLOBAL_DATA.length) filterAndRender();
-        }
-        document.getElementById('loadBtn').onclick = () => { GLOBAL_DATA.length ? filterAndRender() : loadAllDataAndFilter(); };
         document.getElementById('clearDataBtn').onclick = async () => {
-            if(confirm("DELETE ALL DATA?")) { await supabase.from(TABLE).delete().neq('id', 0); GLOBAL_DATA=[]; processData([]); alert("Cleared"); }
+            if(!confirm("DELETE ALL DATA?")) return;
+            await supabase.from(TABLE).delete().neq('id', 0);
+            GLOBAL_DATA = []; loadAllDataAndFilter();
+            alert("Cleared");
         };
+
+        function setDateRange(mode) {
+            if(mode === 'auto' && GLOBAL_DATA.length) {
+                const dates = GLOBAL_DATA.map(r => r.transaction_date).sort();
+                document.getElementById('startDate').value = dates[0];
+                document.getElementById('endDate').value = dates[dates.length-1];
+                filterAndRender();
+            }
+        }
     </script>
 </body>
 </html>
