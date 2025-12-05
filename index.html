@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SalesPulse V.34 (Service Plan Fixed)</title>
+    <title>SalesPulse V.35 (Real-time Stock)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -21,8 +21,11 @@
         .modal { transition: opacity 0.2s ease; }
         body.modal-active { overflow: hidden; }
         #loadingOverlay { backdrop-filter: blur(2px); background: rgba(255,255,255,0.8); }
-        .critical-stock { background-color: #fee2e2; color: #991b1b; } /* Red for low stock */
-        .warning-stock { background-color: #ffedd5; color: #9a3412; } /* Orange for warning */
+        
+        /* Stock Status Colors */
+        .stock-critical { background-color: #fee2e2; color: #b91c1c; font-weight: bold; } /* Red < 7 */
+        .stock-warning { background-color: #ffedd5; color: #c2410c; font-weight: bold; } /* Orange < 14 */
+        .stock-good { background-color: #dcfce7; color: #15803d; font-weight: bold; } /* Green >= 14 */
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans h-screen flex overflow-hidden">
@@ -42,7 +45,7 @@
             <button onclick="switchTab('cost')" id="nav-cost" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">Branch Cost</button>
             <button onclick="switchTab('compare')" id="nav-compare" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">Sales Compare</button>
             <button onclick="switchTab('pnl')" id="nav-pnl" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">Profit & Loss</button>
-            <!-- NEW MENU -->
+            <!-- NEW MENU: Service Planning -->
             <button onclick="switchTab('planning')" id="nav-planning" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
                 Service Planning
@@ -143,18 +146,19 @@
             <div id="pnlContainer" class="space-y-8 pb-12"></div>
         </div>
 
-        <!-- 6. SERVICE PLANNING -->
+        <!-- 6. SERVICE PLANNING (REAL-TIME STOCK) -->
         <div id="view-planning" class="hidden fade-in space-y-8">
             <div class="flex flex-col md:flex-row justify-between items-end gap-4 border-b border-slate-100 pb-6">
                 <div>
                     <h2 class="text-3xl font-bold text-slate-900">Service Planning</h2>
-                    <p class="text-sm text-slate-500 mt-1">Stock analysis based on average sales (Weekdays vs Weekends) from current dashboard range.</p>
+                    <p class="text-sm text-slate-500 mt-1">Real-time stock analysis from database compared with average sales.</p>
                 </div>
-                <button onclick="loadServicePlanning()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-indigo-700">Refresh Analysis</button>
+                <button onclick="loadServicePlanning()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-indigo-700 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    Refresh Analysis
+                </button>
             </div>
-            <div id="planningContainer" class="space-y-8 pb-12">
-                <!-- Content will be injected here -->
-            </div>
+            <div id="planningContainer" class="space-y-8 pb-12"></div>
         </div>
 
     </main>
@@ -179,10 +183,7 @@
         const TABLE = 'sales_records';
         const LOG_TABLE = 'upload_logs';
         const COST_TABLE = 'branch_costs';
-        
-        // --- PROXY URL APPLIED HERE ---
-        const STOCK_SHEET_CSV = 'https://corsproxy.io/?' + encodeURIComponent('https://docs.google.com/spreadsheets/d/1Gr_T63Gbxqf-tFhCa7wM0s2PP0V_APGMdxKJiOBIvwc/export?format=csv&gid=1888649299');
-
+        const STOCK_TABLE = 'current_stocks'; // NEW
         const MAX_FETCH = 300000; 
 
         let supabase, GLOBAL_DATA = [], charts = {};
@@ -342,7 +343,7 @@
         window.filterDashByYear = (y) => { if(!y) return; setDash(`${y}-01-01`, `${y}-12-31`); };
         function setDash(s,e) { document.getElementById('dashStart').value=s; document.getElementById('dashEnd').value=e; fetchDataAndRender(); }
 
-        // --- BRANCH VIEW ---
+        // --- BRANCH VIEW (FIXED BADGE) ---
         function renderBranchView() {
             const s = document.getElementById('branchStart').value; const e = document.getElementById('branchEnd').value;
             const data = GLOBAL_DATA.filter(r => r.transaction_date >= s && r.transaction_date <= e);
@@ -373,7 +374,7 @@
             if(!error) { BRANCH_COSTS_CACHE = {}; data.forEach(c => BRANCH_COSTS_CACHE[c.branch_name] = {rent: c.rent, gp: c.gp_percent}); }
         }
 
-        // --- COST SETTINGS ---
+        // --- COST SETTINGS (FIXED HEIGHT) ---
         function renderCostSettings() {
             const branches = new Set(); GLOBAL_DATA.forEach(r => branches.add(r.branch_name || "Unknown"));
             const container = document.getElementById('costContainer'); container.innerHTML = '';
@@ -389,7 +390,7 @@
         window.saveCostCloud = async (br, type, val) => { const current = BRANCH_COSTS_CACHE[br] || {rent:0, gp:0}; if(type === 'rent') current.rent = Number(val); if(type === 'gp') current.gp = Number(val); BRANCH_COSTS_CACHE[br] = current; await supabase.from(COST_TABLE).upsert({ branch_name: br, rent: current.rent, gp_percent: current.gp }, { onConflict: 'branch_name' }); };
         window.deleteCostCloud = async (br) => { if(!confirm("Reset?")) return; delete BRANCH_COSTS_CACHE[br]; renderCostSettings(); await supabase.from(COST_TABLE).delete().eq('branch_name', br); };
 
-        // --- COMPARE ---
+        // --- COMPARE (REVAMPED TO LINE CHART + DROPDOWN) ---
         window.setCompMonth = (period, val) => {
             if(!val) return;
             const [y, m] = val.split('-');
@@ -420,6 +421,7 @@
             document.getElementById('compValB').innerText = cur.format(rB.s); 
             document.getElementById('compQtyB').innerText = num.format(rB.q);
             
+            // --- DAILY DATA LOGIC FOR LINE CHART ---
             const mapDaily = (data) => {
                 const map = {};
                 data.forEach(r => {
@@ -558,12 +560,11 @@
             link.click();
         };
 
-        // --- NEW: SERVICE PLANNING ---
+        // --- NEW: SERVICE PLANNING (Real-time Supabase) ---
         async function loadServicePlanning() {
             showLoading(true, "Analyzing Stock...");
             
-            // 1. Calculate Average Sales (Weekday vs Weekend) from GLOBAL_DATA
-            // Helper to count days in range
+            // 1. Calculate Average Sales from GLOBAL_DATA (sales_records)
             const start = new Date(document.getElementById('dashStart').value);
             const end = new Date(document.getElementById('dashEnd').value);
             let countWD = 0, countWE = 0;
@@ -571,14 +572,15 @@
                 const day = d.getDay();
                 if (day === 0 || day === 6) countWE++; else countWD++;
             }
-            if(countWD === 0) countWD = 1; // Prevent div by zero
+            if(countWD === 0) countWD = 1;
             if(countWE === 0) countWE = 1;
 
-            // Aggregation: Branch -> Type (Ink vs Paper) -> {wd: sum, we: sum}
             const runRates = {}; 
-            
+            // Normalize helper
+            const normalize = (str) => (str || "").trim().toUpperCase().replace(/\s+/g, ' ');
+
             GLOBAL_DATA.forEach(r => {
-                const br = r.branch_name || "Unknown";
+                const br = normalize(r.branch_name);
                 const isInk = (r.product || "").toUpperCase().includes("RIBBON");
                 const type = isInk ? "INK" : "PAPER";
                 const day = new Date(r.timestamp).getDay();
@@ -590,41 +592,28 @@
                 else runRates[br][type].wd += Number(r.quantity);
             });
 
-            // 2. Fetch Google Sheet Stock
-            Papa.parse(STOCK_SHEET_CSV, {
-                download: true,
-                header: false,
-                complete: function(results) {
-                    const stockData = {}; // Branch -> {INK: qty, PAPER: qty}
-                    
-                    // Skip header (row 0), start from row 1
-                    // Col C (index 2) = Branch
-                    // Col F (index 5) = Product Name
-                    // Col G (index 6) = Qty
-                    results.data.forEach((row, idx) => {
-                        if (idx === 0) return; // Header
-                        if (!row[2] || !row[5]) return; // Invalid row
+            // 2. Fetch Stock from Supabase (current_stocks)
+            const { data: stockRows, error } = await supabase.from(STOCK_TABLE).select('*');
+            
+            if (error) {
+                showLoading(false);
+                return alert("Error fetching stock: " + error.message);
+            }
 
-                        const br = row[2].trim();
-                        const prod = row[5].trim().toUpperCase();
-                        const qty = parseInt(row[6] || 0);
-                        const isInk = prod.includes("RIBBON");
-                        const type = isInk ? "INK" : "PAPER";
+            const stockData = {}; // Branch -> {INK: qty, PAPER: qty}
+            stockRows.forEach(row => {
+                const br = normalize(row.branch_name);
+                const prod = (row.product_name || "").toUpperCase();
+                const qty = Number(row.quantity || 0);
+                const isInk = prod.includes("RIBBON") || prod.includes("INK");
+                const type = isInk ? "INK" : "PAPER";
 
-                        if (!stockData[br]) stockData[br] = { INK: 0, PAPER: 0 };
-                        stockData[br][type] += qty;
-                    });
-
-                    renderPlanningTable(runRates, stockData, countWD, countWE);
-                    showLoading(false);
-                },
-                error: function(err) {
-                    showLoading(false);
-                    // Log error to console but alert user
-                    console.error("CSV Fetch Error:", err);
-                    alert("Failed to load Google Sheet. Please check console (F12) for CORS errors.");
-                }
+                if (!stockData[br]) stockData[br] = { INK: 0, PAPER: 0 };
+                stockData[br][type] += qty;
             });
+
+            renderPlanningTable(runRates, stockData, countWD, countWE);
+            showLoading(false);
         }
 
         function renderPlanningTable(runRates, stockData, daysWD, daysWE) {
@@ -636,15 +625,13 @@
 
             ['Moshi', 'B2S', 'Wanyen'].forEach(grp => {
                 const color = grp==='Moshi'?'pink':(grp==='B2S'?'blue':'orange');
-                const grpBranches = Array.from(branches).filter(b => getGroup(b) === grp).sort((a,b) => {
-                     const valA = parseInt(a.match(/^\d+/)?.[0] || "0");
-                     const valB = parseInt(b.match(/^\d+/)?.[0] || "0");
-                     return valA - valB;
-                });
+                // Filter branches by group
+                const grpBranches = Array.from(branches).filter(b => getGroup(b) === grp);
                 
                 if (grpBranches.length === 0) return;
 
-                let rows = '';
+                const tableData = [];
+
                 grpBranches.forEach(br => {
                     const stock = stockData[br] || { INK: 0, PAPER: 0 };
                     const sales = runRates[br] || { INK: {wd:0, we:0}, PAPER: {wd:0, we:0} };
@@ -653,55 +640,65 @@
                         const s = sales[type];
                         const avgWD = s.wd / daysWD;
                         const avgWE = s.we / daysWE;
+                        // Weighted Avg: ((AvgWD * 5) + (AvgWE * 2)) / 7
                         const weightedAvg = ((avgWD * 5) + (avgWE * 2)) / 7;
                         const currentStock = stock[type];
+                        // Days Left
                         const daysLeft = weightedAvg > 0 ? (currentStock / weightedAvg) : 999;
-                        
-                        return { avgWD, avgWE, stock: currentStock, daysLeft };
+                        return { type, stock: currentStock, avgWD, avgWE, daysLeft };
                     };
 
-                    const pPaper = calc('PAPER');
-                    const pInk = calc('INK');
+                    tableData.push({ branch: br, ...calc('PAPER') });
+                    tableData.push({ branch: br, ...calc('INK') });
+                });
 
-                    const getRowHtml = (label, data) => {
-                        const isCrit = data.daysLeft < 7;
-                        const isWarn = data.daysLeft >= 7 && data.daysLeft < 14;
-                        const style = isCrit ? 'critical-stock font-bold' : (isWarn ? 'warning-stock' : '');
-                        const dayText = data.daysLeft > 365 ? '> 1 Year' : Math.floor(data.daysLeft) + ' days';
-                        
-                        return `
-                            <tr class="border-b hover:bg-slate-50 text-xs">
-                                <td class="px-4 py-2 text-slate-500">${label}</td>
-                                <td class="px-4 py-2 text-right font-mono text-slate-800">${num.format(data.stock)}</td>
-                                <td class="px-4 py-2 text-right font-mono text-blue-600">${num.format(data.avgWD)}</td>
-                                <td class="px-4 py-2 text-right font-mono text-orange-600">${num.format(data.avgWE)}</td>
-                                <td class="px-4 py-2 text-right font-mono ${style}">${dayText}</td>
-                            </tr>
-                        `;
-                    };
+                // SORTING: Critical (lowest days left) first
+                tableData.sort((a,b) => a.daysLeft - b.daysLeft);
 
+                let rows = '';
+                tableData.forEach(item => {
+                    const isCrit = item.daysLeft < 7;
+                    const isWarn = item.daysLeft >= 7 && item.daysLeft < 14;
+                    const styleClass = isCrit ? 'stock-critical' : (isWarn ? 'stock-warning' : 'stock-good');
+                    
+                    const dayText = item.daysLeft > 365 ? '> 1 Year' : item.daysLeft.toFixed(1) + ' Days';
+                    
+                    // Branch Name Display (Original casing recovery is hard due to normalization, using stored key)
+                    // We normalized keys, so display is normalized. 
+                    
                     rows += `
-                        <tr class="bg-slate-50/50 border-b"><td colspan="5" class="px-4 py-1.5 font-bold text-slate-700 text-xs">${br}</td></tr>
-                        ${getRowHtml('Product (Paper)', pPaper)}
-                        ${getRowHtml('Ink (Ribbon)', pInk)}
+                        <tr class="border-b hover:bg-slate-50 text-xs">
+                            <td class="px-4 py-2 font-medium text-slate-700">${item.branch}</td>
+                            <td class="px-4 py-2 text-slate-500">${item.type}</td>
+                            <td class="px-4 py-2 text-right font-mono text-slate-800">${num.format(item.stock)}</td>
+                            <td class="px-4 py-2 text-right font-mono text-blue-600">${num.format(item.avgWD)}</td>
+                            <td class="px-4 py-2 text-right font-mono text-orange-600">${num.format(item.avgWE)}</td>
+                            <td class="px-4 py-2 text-center font-mono text-xs rounded border ${styleClass}">${dayText}</td>
+                        </tr>
                     `;
                 });
 
                 container.innerHTML += `
                     <div class="bg-white rounded-xl border border-${color}-200 overflow-hidden shadow-sm">
-                        <div class="bg-${color}-50 px-4 py-2 font-bold text-${color}-800 text-sm border-b border-${color}-100">${grp}</div>
-                        <table class="w-full">
-                            <thead class="bg-white text-[10px] uppercase text-slate-400 border-b">
-                                <tr>
-                                    <th class="text-left px-4 py-2">Type</th>
-                                    <th class="text-right px-4">Stock</th>
-                                    <th class="text-right px-4">Avg (Mon-Fri)</th>
-                                    <th class="text-right px-4">Avg (Sat-Sun)</th>
-                                    <th class="text-right px-4">Est. Days Left</th>
-                                </tr>
-                            </thead>
-                            <tbody>${rows}</tbody>
-                        </table>
+                        <div class="bg-${color}-50 px-4 py-2 font-bold text-${color}-800 text-sm border-b border-${color}-100 flex justify-between">
+                            <span>${grp}</span>
+                            <span class="text-[10px] bg-white px-2 rounded border border-${color}-200 opacity-70">Sorted by Days Left</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-white text-[10px] uppercase text-slate-400 border-b">
+                                    <tr>
+                                        <th class="text-left px-4 py-2">Branch</th>
+                                        <th class="text-left px-4 py-2">Type</th>
+                                        <th class="text-right px-4">Stock</th>
+                                        <th class="text-right px-4">Avg (M-F)</th>
+                                        <th class="text-right px-4">Avg (S-S)</th>
+                                        <th class="text-center px-4">Est. Time Left</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${rows}</tbody>
+                            </table>
+                        </div>
                     </div>
                 `;
             });
