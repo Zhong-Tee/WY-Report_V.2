@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SalesReport V.42</title>
     
-    <!-- CHANGE 3: Favicon Pink W (Japanese Cute Style) -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23ffb7c5%22/><text x=%2250%22 y=%2250%22 font-family=%22Arial, sans-serif%22 font-weight=%22bold%22 font-size=%2260%22 fill=%22white%22 text-anchor=%22middle%22 dominant-baseline=%22central%22>W</text></svg>">
-
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
@@ -359,32 +356,12 @@
             });
         }
 
-        // CHANGE 4: Data Normalization / Aggregation Helper
-        function normalizeBranchNames(data) {
-            // 1. Map ID to Latest Timestamp and Name
-            const idMap = {};
-            data.forEach(r => {
-                if(r.branch_id) {
-                    const time = new Date(r.timestamp).getTime();
-                    if(!idMap[r.branch_id] || time > idMap[r.branch_id].time) {
-                        idMap[r.branch_id] = { time: time, name: r.branch_name };
-                    }
-                }
-            });
-
-            // 2. Update all records to use the latest name for their ID
-            // This ensures subsequent grouping by name automatically aggregates duplicates
-            return data.map(r => {
-                if(r.branch_id && idMap[r.branch_id]) {
-                    r.branch_name = idMap[r.branch_id].name;
-                }
-                return r;
-            });
-        }
-
         async function fetchData(s, e) {
             showLoading(true, "Fetching...");
             let allRows = [], from = 0, pageSize = 1000, keepFetching = true;
+            
+            // Estimate total for progress bar based on date range ratio approx or just use TOTAL_DB_ROWS if unfiltered
+            // For simplicity in this structure, we'll increment progress based on fetched chunks vs estimated cap
             const ESTIMATED_MAX = TOTAL_DB_ROWS > 0 ? TOTAL_DB_ROWS : 50000; 
 
             try {
@@ -398,8 +375,12 @@
                         from += pageSize; 
                     }
                     
+                    // Update Progress Bar
+                    // Heuristic: If we are filtering by date, we don't know exact total. 
+                    // But we can just show progress relative to a reasonable batch amount or just animate.
+                    // Let's use `from` against `TOTAL_DB_ROWS` but cap it at 95% until done.
                     let progress = (from / TOTAL_DB_ROWS) * 100;
-                    if(progress > 95) progress = 95; 
+                    if(progress > 95) progress = 95; // Wait for final
                     updateProgress(progress);
 
                     if (data.length < pageSize) keepFetching = false;
@@ -417,10 +398,7 @@
             const s = document.getElementById('dashStart').value;
             const e = document.getElementById('dashEnd').value;
             if(!s || !e) return;
-            let data = await fetchData(s, e);
-            // APPLY NORMALIZATION
-            GLOBAL_DATA = normalizeBranchNames(data);
-            
+            GLOBAL_DATA = await fetchData(s, e);
             document.getElementById('recordCountDisplay').innerText = `${GLOBAL_DATA.length} rows`;
             document.getElementById('currentRangeText').innerText = `${s} to ${e}`;
             document.getElementById('branchStart').value = s;
@@ -433,10 +411,7 @@
             const s = document.getElementById('branchStart').value;
             const e = document.getElementById('branchEnd').value;
             if(!s || !e) return alert("Select dates");
-            let data = await fetchData(s, e);
-            // APPLY NORMALIZATION
-            GLOBAL_DATA = normalizeBranchNames(data);
-
+            GLOBAL_DATA = await fetchData(s, e);
             document.getElementById('dashStart').value = s;
             document.getElementById('dashEnd').value = e;
             document.getElementById('currentRangeText').innerText = `${s} to ${e}`;
@@ -458,9 +433,8 @@
             GLOBAL_DATA.forEach(r => {
                 const v = Number(r.total_amount)||0;
                 const q = Number(r.quantity)||0;
-                // Because of normalizeBranchNames, branch_name is already standardized here
+                const g = getGroup(r.branch_name);
                 const brName = r.branch_name || "Unknown";
-                const g = getGroup(brName);
 
                 sum+=v; qty+=q;
                 groups[g].sum+=v; groups[g].qty+=q;
@@ -472,7 +446,7 @@
                 const dayIdx = new Date(r.timestamp).getDay();
                 weeklyStats[dayIdx] += v;
                 globalProd[r.product||"?"] = (globalProd[r.product||"?"]||0)+v;
-                globalBranch[brName] = (globalBranch[brName]||0)+v;
+                globalBranch[r.branch_name||"?"] = (globalBranch[r.branch_name||"?"]||0)+v;
             });
 
             Object.entries(branchSales).forEach(([br, data]) => {
@@ -557,7 +531,6 @@
         // --- BRANCH VIEW ---
         function renderBranchView() {
             const s = document.getElementById('branchStart').value; const e = document.getElementById('branchEnd').value;
-            // GLOBAL_DATA is already normalized in fetchBranchData
             const data = GLOBAL_DATA.filter(r => r.transaction_date >= s && r.transaction_date <= e);
             const container = document.getElementById('branchCardsContainerFull'); container.innerHTML = '';
             const cur = new Intl.NumberFormat('en-US', {style:'currency', currency:'THB', maximumFractionDigits: 0});
@@ -634,12 +607,8 @@
             const sB = document.getElementById('compStartB').value; const eB = document.getElementById('compEndB').value;
             if(!sA || !eA || !sB || !eB) return alert("Select dates");
 
-            let dA = await fetchData(sA, eA);
-            let dB = await fetchData(sB, eB);
-            
-            // Normalize for comparison too
-            dA = normalizeBranchNames(dA);
-            dB = normalizeBranchNames(dB);
+            const dA = await fetchData(sA, eA);
+            const dB = await fetchData(sB, eB);
 
             const calcTotal = d => d.reduce((a,r)=>({s:a.s+(Number(r.total_amount)||0), q:a.q+(Number(r.quantity)||0)}), {s:0,q:0});
             const rA = calcTotal(dA); 
@@ -702,11 +671,8 @@
                 const sB = `${yB}-01-01`;
                 const eB = `${yB}-12-31`;
 
-                let dA = await fetchData(sA, eA);
-                let dB = await fetchData(sB, eB);
-
-                dA = normalizeBranchNames(dA);
-                dB = normalizeBranchNames(dB);
+                const dA = await fetchData(sA, eA);
+                const dB = await fetchData(sB, eB);
 
                 const calcTotal = d => d.reduce((a,r)=>({s:a.s+(Number(r.total_amount)||0), q:a.q+(Number(r.quantity)||0)}), {s:0,q:0});
                 const rA = calcTotal(dA);
@@ -774,9 +740,7 @@
         // --- P&L ---
         async function loadPnLMonth() {
             const m = document.getElementById('pnlMonth').value; if(!m) return;
-            let data = await fetchData(`${y}-${mo}-01`, new Date(y, mo, 0).toISOString().split('T')[0]);
-            // Apply Normalization
-            data = normalizeBranchNames(data);
+            const [y, mo] = m.split('-'); const data = await fetchData(`${y}-${mo}-01`, new Date(y, mo, 0).toISOString().split('T')[0]);
             renderPnLTable(data, m);
         }
 
@@ -813,10 +777,7 @@
 
         window.downloadPnL = async () => {
             const m = document.getElementById('pnlMonth').value; if(!m) return alert("Select Month");
-            const [y, mo] = m.split('-'); 
-            let data = await fetchData(`${y}-${mo}-01`, new Date(y, mo, 0).toISOString().split('T')[0]);
-            data = normalizeBranchNames(data);
-
+            const [y, mo] = m.split('-'); const data = await fetchData(`${y}-${mo}-01`, new Date(y, mo, 0).toISOString().split('T')[0]);
             if(!data.length) return alert("No data");
             const costs = BRANCH_COSTS_CACHE;
             const report = [];
@@ -1107,7 +1068,6 @@
 
         window.openGroupModal = (grp) => {
             const s = document.getElementById('branchStart').value; const e = document.getElementById('branchEnd').value;
-            // Filter using Normalized Data
             const data = GLOBAL_DATA.filter(r => r.transaction_date >= s && r.transaction_date <= e && getGroup(r.branch_name) === grp);
             const prod={}, br={};
             data.forEach(r=>{ const v=Number(r.total_amount)||0; prod[r.product||"?"]=(prod[r.product||"?"]||0)+v; br[r.branch_name||"?"]=(br[r.branch_name||"?"]||0)+v; });
@@ -1135,61 +1095,8 @@
         
         function setupEventListeners() {
              document.getElementById('globalImportBtn').onclick=()=>document.getElementById('globalCsvInput').click();
-             
-             // CHANGE 1: Upload Logic to insert branch_id to costs table
-             document.getElementById('globalCsvInput').onchange=async(e)=>{ 
-                 const files=e.target.files; 
-                 if(!files.length) return; 
-                 showLoading(true); 
-                 for(let i=0;i<files.length;i++){ 
-                     const f=files[i]; 
-                     const {data:exists}=await supabase.from(LOG_TABLE).select('*').eq('filename',f.name).single(); 
-                     if(exists){alert("File exists!");continue;} 
-                     await new Promise(r=>Papa.parse(f,{header:false,skipEmptyLines:true,complete:async(res)=>{ 
-                         const rows=res.data.map(transform).filter(x=>x); 
-                         const batch=500; 
-                         for(let j=0;j<Math.ceil(rows.length/batch);j++) { 
-                             await supabase.from(TABLE).insert(rows.slice(j*batch,(j+1)*batch)); 
-                             updateProgress((j / Math.ceil(rows.length/batch)) * 100); 
-                         } 
-                         await supabase.from(LOG_TABLE).insert({filename:f.name, total_rows:rows.length}); 
-                         
-                         // Insert branch IDs to costs table
-                         const uniqueBranches = {};
-                         rows.forEach(r => {
-                             if(r.branch_id && r.branch_name) {
-                                 uniqueBranches[r.branch_id] = r.branch_name;
-                             }
-                         });
-                         const costUpdates = Object.entries(uniqueBranches).map(([id, name]) => ({
-                             branch_id: parseInt(id),
-                             branch_name: name
-                         }));
-                         if(costUpdates.length > 0) {
-                             // Attempt upsert. Assuming branch_id is a unique key or PK now as requested.
-                             // If schema hasn't changed on DB side, this might fail if PK is just branch_name, 
-                             // but we proceed as per instruction to add branch_id.
-                             await supabase.from(COST_TABLE).upsert(costUpdates, { onConflict: 'branch_id', ignoreDuplicates: true });
-                         }
-
-                         r(); 
-                     }})); 
-                 } 
-                 showLoading(false); 
-                 alert("Done"); 
-                 fetchDataAndRender(); 
-             };
-
-             // CHANGE 2: Delete Passcode
-             document.getElementById('deleteByFileBtn').onclick = () => {
-                 const pass = prompt("Enter passcode to delete:");
-                 if(pass === "001") {
-                     document.getElementById('deleteFileInput').click();
-                 } else {
-                     alert("Wrong passcode!");
-                 }
-             };
-
+             document.getElementById('globalCsvInput').onchange=async(e)=>{ const files=e.target.files; if(!files.length) return; showLoading(true); for(let i=0;i<files.length;i++){ const f=files[i]; const {data:exists}=await supabase.from(LOG_TABLE).select('*').eq('filename',f.name).single(); if(exists){alert("File exists!");continue;} await new Promise(r=>Papa.parse(f,{header:false,skipEmptyLines:true,complete:async(res)=>{ const rows=res.data.map(transform).filter(x=>x); const batch=500; for(let j=0;j<Math.ceil(rows.length/batch);j++) { await supabase.from(TABLE).insert(rows.slice(j*batch,(j+1)*batch)); updateProgress((j / Math.ceil(rows.length/batch)) * 100); } await supabase.from(LOG_TABLE).insert({filename:f.name, total_rows:rows.length}); r(); }})); } showLoading(false); alert("Done"); fetchDataAndRender(); };
+             document.getElementById('deleteByFileBtn').onclick=()=>document.getElementById('deleteFileInput').click();
              document.getElementById('deleteFileInput').onchange=async(e)=>{ const f=e.target.files[0]; if(!f||!confirm("Delete?")) return; showLoading(true); Papa.parse(f, {header:false, skipEmptyLines:true, complete:async(res)=>{ const rows=res.data.map(transform).filter(x=>x); const batch=50; for(let j=0;j<Math.ceil(rows.length/batch);j++) { const chunk=rows.slice(j*batch,(j+1)*batch); await Promise.all(chunk.map(r=>supabase.from(TABLE).delete().match({transaction_date:r.transaction_date, transaction_time:r.transaction_time, branch_name:r.branch_name, total_amount:r.total_amount}))); } await supabase.from(LOG_TABLE).delete().eq('filename',f.name); showLoading(false); alert("Deleted"); fetchDataAndRender(); }}); };
              document.getElementById('globalResetBtn').onclick=async()=>{ 
                  const pass = prompt("Enter passcode to reset DB:");
