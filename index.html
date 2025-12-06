@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SalesPulse V.38 (BranchID & Profit Sum)</title>
+    <title>SalesPulse V.39 (Year Compare Fixed)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -42,17 +42,8 @@
             <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors active">Dashboard</button>
             <button onclick="switchTab('branch')" id="nav-branch" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">Branch Analysis</button>
             <button onclick="switchTab('cost')" id="nav-cost" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">Branch Cost</button>
-
-            <!-- เปลี่ยนชื่อเมนูเดิม -->
-            <button onclick="switchTab('compare')" id="nav-compare" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
-                Sales Comparison Period
-            </button>
-
-            <!-- เมนูใหม่ Year -->
-            <button onclick="switchTab('compareYear')" id="nav-compareYear" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
-                Sales Comparison Year
-            </button>
-
+            <button onclick="switchTab('compare')" id="nav-compare" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">Sales Comparison Period</button>
+            <button onclick="switchTab('compareYear')" id="nav-compareYear" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">Sales Comparison Year</button>
             <button onclick="switchTab('pnl')" id="nav-pnl" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">Profit & Loss</button>
             <button onclick="switchTab('planning')" id="nav-planning" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
@@ -141,12 +132,9 @@
             <div id="costContainer" class="grid grid-cols-1 xl:grid-cols-3 gap-8"></div>
         </div>
 
-        <!-- 4. COMPARE -->
+        <!-- 4. COMPARE PERIOD -->
         <div id="view-compare" class="hidden fade-in space-y-8">
-            <h2 class="text-3xl font-bold text-slate-900 border-b border-slate-100 pb-6">
-                Sales Comparison Period
-            </h2>
-
+            <h2 class="text-3xl font-bold text-slate-900 border-b border-slate-100 pb-6">Sales Comparison Period</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-blue-200"><div class="flex justify-between items-center mb-4"><h4 class="font-bold text-blue-800">Period A</h4><input type="month" class="text-xs border p-1 rounded" onchange="setCompMonth('A', this.value)" placeholder="Select Month"></div><div class="flex gap-2 mb-6"><input type="date" id="compStartA" class="border p-2 w-full text-sm rounded"><input type="date" id="compEndA" class="border p-2 w-full text-sm rounded"></div><p class="text-3xl font-black text-slate-800" id="compValA">0.00</p><p class="text-sm text-slate-500 mt-2">Qty: <span id="compQtyA" class="font-bold">0</span></p></div>
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-orange-200"><div class="flex justify-between items-center mb-4"><h4 class="font-bold text-orange-800">Period B</h4><input type="month" class="text-xs border p-1 rounded" onchange="setCompMonth('B', this.value)" placeholder="Select Month"></div><div class="flex gap-2 mb-6"><input type="date" id="compStartB" class="border p-2 w-full text-sm rounded"><input type="date" id="compEndB" class="border p-2 w-full text-sm rounded"></div><p class="text-3xl font-black text-slate-800" id="compValB">0.00</p><p class="text-sm text-slate-500 mt-2">Qty: <span id="compQtyB" class="font-bold">0</span></p></div>
@@ -157,52 +145,38 @@
                       
         <!-- 4.1 COMPARE YEAR -->
         <div id="view-compareYear" class="hidden fade-in space-y-8">
-            <h2 class="text-3xl font-bold text-slate-900 border-b border-slate-100 pb-6">
-                Sales Comparison Year
-            </h2>
-
+            <h2 class="text-3xl font-bold text-slate-900 border-b border-slate-100 pb-6">Sales Comparison Year</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-blue-200">
                     <div class="flex justify-between items-center mb-4">
                         <h4 class="font-bold text-blue-800">Year A</h4>
-                        <input type="number" id="compYearA" class="text-xs border p-1 rounded w-24" placeholder="YYYY">
+                        <!-- FIXED: Changed input to select -->
+                        <select id="compYearA" class="text-xs border p-1 rounded w-24 bg-white"><option value="">Select Year</option></select>
                     </div>
                     <p class="text-3xl font-black text-slate-800" id="compYearValA">0.00</p>
-                    <p class="text-sm text-slate-500 mt-2">
-                        Qty: <span id="compYearQtyA" class="font-bold">0</span>
-                    </p>
+                    <p class="text-sm text-slate-500 mt-2">Qty: <span id="compYearQtyA" class="font-bold">0</span></p>
                 </div>
-
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-orange-200">
                     <div class="flex justify-between items-center mb-4">
                         <h4 class="font-bold text-orange-800">Year B</h4>
-                        <input type="number" id="compYearB" class="text-xs border p-1 rounded w-24" placeholder="YYYY">
+                        <!-- FIXED: Changed input to select -->
+                        <select id="compYearB" class="text-xs border p-1 rounded w-24 bg-white"><option value="">Select Year</option></select>
                     </div>
                     <p class="text-3xl font-black text-slate-800" id="compYearValB">0.00</p>
-                    <p class="text-sm text-slate-500 mt-2">
-                        Qty: <span id="compYearQtyB" class="font-bold">0</span>
-                    </p>
+                    <p class="text-sm text-slate-500 mt-2">Qty: <span id="compYearQtyB" class="font-bold">0</span></p>
                 </div>
             </div>
-
             <div class="flex justify-center pt-4">
-                <button onclick="runCompareYear()" class="bg-slate-800 text-white px-8 py-3 rounded-full shadow-lg hover:bg-slate-900 font-bold">
-                    Run Year Comparison
-                </button>
+                <button onclick="runCompareYear()" class="bg-slate-800 text-white px-8 py-3 rounded-full shadow-lg hover:bg-slate-900 font-bold">Run Year Comparison</button>
             </div>
-
             <div class="space-y-6 mt-6">
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                     <h4 class="font-bold text-slate-700 mb-4">Monthly Sales Comparison (Line)</h4>
-                    <div class="h-96">
-                        <canvas id="compareYearSalesChart"></canvas>
-                    </div>
+                    <div class="h-96"><canvas id="compareYearSalesChart"></canvas></div>
                 </div>
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                     <h4 class="font-bold text-slate-700 mb-4">Monthly Quantity Comparison (Line)</h4>
-                    <div class="h-96">
-                        <canvas id="compareYearQtyChart"></canvas>
-                    </div>
+                    <div class="h-96"><canvas id="compareYearQtyChart"></canvas></div>
                 </div>
             </div>
         </div>
@@ -263,6 +237,7 @@
         let BRANCH_COSTS_CACHE = {};
 
         window.onload = async () => {
+            // FIXED: Init year pickers for all targets
             initYearPicker();
             const d = new Date().toISOString().split('T')[0];
             document.getElementById('dashStart').value = d;
@@ -294,6 +269,25 @@
             const overlay = document.getElementById('loadingOverlay');
             document.getElementById('loadingText').innerText = text;
             overlay.classList[show?'remove':'add']('hidden');
+        }
+
+        // FIXED: Updated initYearPicker to populate all year dropdowns
+        function initYearPicker() {
+            const targets = ['dashYearPicker', 'compYearA', 'compYearB'];
+            const y = new Date().getFullYear();
+            targets.forEach(id => {
+                const el = document.getElementById(id);
+                if(!el) return;
+                // Keep default option
+                const defaultText = el.firstElementChild.innerText;
+                el.innerHTML = `<option value="">${defaultText}</option>`;
+                for(let i=y; i>=y-5; i--){
+                    let o = document.createElement('option');
+                    o.value = i;
+                    o.innerText = i;
+                    el.appendChild(o);
+                }
+            });
         }
 
         async function fetchData(s, e) {
@@ -448,7 +442,6 @@
         }
 
         function getGroup(b) { b=(b||"").toUpperCase(); if(b.includes('MOSHI')||b.includes('MS')) return 'Moshi'; if(b.includes('B2S')) return 'B2S'; return 'Wanyen'; }
-        function initYearPicker() { const s = document.getElementById('dashYearPicker'); const y = new Date().getFullYear(); for(let i=y;i>=y-5;i--){let o=document.createElement('option'); o.value=i; o.innerText=i; s.appendChild(o);} }
         window.filterDash7Days = () => { const e=new Date(); const s=new Date(); s.setDate(e.getDate()-6); setDash(s,e); };
         window.filterDashByMonth = (m) => { if(!m) return; const [y,mo]=m.split('-'); const l=new Date(y,mo,0).getDate(); setDash(`${y}-${mo}-01`, `${y}-${mo}-${l}`); };
         window.filterDashByYear = (y) => { if(!y) return; setDash(`${y}-01-01`, `${y}-12-31`); };
@@ -485,7 +478,7 @@
             if(!error) { BRANCH_COSTS_CACHE = {}; data.forEach(c => BRANCH_COSTS_CACHE[c.branch_name] = {rent: c.rent, gp: c.gp_percent}); }
         }
 
-        // --- COST SETTINGS (FIXED HEIGHT) ---
+        // --- COST SETTINGS ---
         function renderCostSettings() {
             const branches = new Set(); GLOBAL_DATA.forEach(r => branches.add(r.branch_name || "Unknown"));
             const container = document.getElementById('costContainer'); container.innerHTML = '';
@@ -501,7 +494,7 @@
         window.saveCostCloud = async (br, type, val) => { const current = BRANCH_COSTS_CACHE[br] || {rent:0, gp:0}; if(type === 'rent') current.rent = Number(val); if(type === 'gp') current.gp = Number(val); BRANCH_COSTS_CACHE[br] = current; await supabase.from(COST_TABLE).upsert({ branch_name: br, rent: current.rent, gp_percent: current.gp }, { onConflict: 'branch_name' }); };
         window.deleteCostCloud = async (br) => { if(!confirm("Reset?")) return; delete BRANCH_COSTS_CACHE[br]; renderCostSettings(); await supabase.from(COST_TABLE).delete().eq('branch_name', br); };
 
-        // --- COMPARE (REVAMPED TO LINE CHART + DROPDOWN) ---
+        // --- COMPARE PERIOD ---
         window.setCompMonth = (period, val) => {
             if(!val) return;
             const [y, m] = val.split('-');
@@ -513,19 +506,14 @@
         };
 
         window.runCompare = async () => {
-            const sA = document.getElementById('compStartA').value; 
-            const eA = document.getElementById('compEndA').value;
-            const sB = document.getElementById('compStartB').value; 
-            const eB = document.getElementById('compEndB').value;
+            const sA = document.getElementById('compStartA').value; const eA = document.getElementById('compEndA').value;
+            const sB = document.getElementById('compStartB').value; const eB = document.getElementById('compEndB').value;
             if(!sA || !eA || !sB || !eB) return alert("Select dates");
 
             const dA = await fetchData(sA, eA);
             const dB = await fetchData(sB, eB);
 
-            const calcTotal = d => d.reduce(
-                (a,r)=>({s:a.s+(Number(r.total_amount)||0), q:a.q+(Number(r.quantity)||0)}),
-                {s:0,q:0}
-            );
+            const calcTotal = d => d.reduce((a,r)=>({s:a.s+(Number(r.total_amount)||0), q:a.q+(Number(r.quantity)||0)}), {s:0,q:0});
             const rA = calcTotal(dA); 
             const rB = calcTotal(dB);
 
@@ -537,14 +525,14 @@
             document.getElementById('compValB').innerText = cur.format(rB.s); 
             document.getElementById('compQtyB').innerText = num.format(rB.q);
             
-            // --- DAILY DATA LOGIC FOR LINE CHART (ตามจำนวนวันจริง) ---
+            // Daily Logic
             const mapDaily = (data) => {
                 const map = {};
                 data.forEach(r => {
-                    const key = r.transaction_date; // YYYY-MM-DD
-                    if (!map[key]) map[key] = {s:0, q:0};
-                    map[key].s += Number(r.total_amount);
-                    map[key].q += Number(r.quantity);
+                    const day = parseInt(r.transaction_date.split('-')[2]);
+                    if (!map[day]) map[day] = {s:0, q:0};
+                    map[day].s += Number(r.total_amount);
+                    map[day].q += Number(r.quantity);
                 });
                 return map;
             };
@@ -552,105 +540,31 @@
             const mapA = mapDaily(dA);
             const mapB = mapDaily(dB);
 
-            const createDateArray = (startStr, endStr) => {
-                const arr = [];
-                const start = new Date(startStr);
-                const end = new Date(endStr);
-                for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                    arr.push(d.toISOString().split('T')[0]); // YYYY-MM-DD
-                }
-                return arr;
-            };
-
-            const datesA = createDateArray(sA, eA);
-            const datesB = createDateArray(sB, eB);
-            const maxLen = Math.max(datesA.length, datesB.length);
-
-            const labels = Array.from({length: maxLen}, (_, i) => `Day ${i+1}`);
-            const dataSA = Array.from({length: maxLen}, (_, i) => {
-                const d = datesA[i];
-                return d ? (mapA[d]?.s || 0) : 0;
-            });
-            const dataSB = Array.from({length: maxLen}, (_, i) => {
-                const d = datesB[i];
-                return d ? (mapB[d]?.s || 0) : 0;
-            });
-            const dataQA = Array.from({length: maxLen}, (_, i) => {
-                const d = datesA[i];
-                return d ? (mapA[d]?.q || 0) : 0;
-            });
-            const dataQB = Array.from({length: maxLen}, (_, i) => {
-                const d = datesB[i];
-                return d ? (mapB[d]?.q || 0) : 0;
-            });
+            const allDays = new Set([...Object.keys(mapA), ...Object.keys(mapB)]);
+            const labels = Array.from(allDays).sort((a,b)=>a-b).map(d => `Day ${d}`);
+            const dataSA = labels.map((_, i) => mapA[i+1]?.s || 0);
+            const dataSB = labels.map((_, i) => mapB[i+1]?.s || 0);
+            const dataQA = labels.map((_, i) => mapA[i+1]?.q || 0);
+            const dataQB = labels.map((_, i) => mapB[i+1]?.q || 0);
 
             if(charts.compSales) charts.compSales.destroy();
             if(charts.compQty) charts.compQty.destroy();
 
             const lineOpts = (type) => ({ 
-                responsive: true, 
-                maintainAspectRatio: false, 
+                responsive: true, maintainAspectRatio: false, 
                 interaction: { mode: 'index', intersect: false },
-                plugins: { 
-                    legend: { position: 'top' }, 
-                    datalabels: { 
-                        display: true,
-                        align: 'end',
-                        anchor: 'end',
-                        color: (ctx) => ctx.datasetIndex === 0 ? '#3b82f6' : '#f97316',
-                        font: { size: 10, weight: 'bold' },
-                        formatter: (val) => {
-                            if (val === 0) return '';
-                            if (type === 'sales')
-                                return new Intl.NumberFormat('en-US', {
-                                    style:'currency',
-                                    currency:'THB',
-                                    maximumFractionDigits:0
-                                }).format(val);
-                            return new Intl.NumberFormat('en-US').format(val) + ' Sheets';
-                        }
-                    } 
-                },
-                scales: {
-                    y: { beginAtZero: true }
-                }
+                plugins: { legend: { position: 'top' }, datalabels: { display: true, align: 'end', anchor: 'end', color: (ctx) => ctx.datasetIndex === 0 ? '#3b82f6' : '#f97316', font: { size: 10, weight: 'bold' }, formatter: (val) => { if (val === 0) return ''; if (type === 'sales') return new Intl.NumberFormat('en-US', {style:'currency', currency:'THB', maximumFractionDigits:0}).format(val); return new Intl.NumberFormat('en-US').format(val) + ' Sheets'; } } }, scales: { y: { beginAtZero: true } }
             });
             
-            charts.compSales = new Chart(
-                document.getElementById('compareSalesChart').getContext('2d'),
-                {
-                    type: 'line', 
-                    data: { 
-                        labels: labels, 
-                        datasets: [
-                            { label: 'Period A', data: dataSA, borderColor: '#3b82f6', backgroundColor: '#3b82f6', tension: 0.3 },
-                            { label: 'Period B', data: dataSB, borderColor: '#f97316', backgroundColor: '#f97316', tension: 0.3 }
-                        ] 
-                    }, 
-                    options: lineOpts('sales')
-                }
-            );
-
-            charts.compQty = new Chart(
-                document.getElementById('compareQtyChart').getContext('2d'),
-                {
-                    type: 'line', 
-                    data: { 
-                        labels: labels, 
-                        datasets: [
-                            { label: 'Period A', data: dataQA, borderColor: '#60a5fa', backgroundColor: '#60a5fa', tension: 0.3 },
-                            { label: 'Period B', data: dataQB, borderColor: '#fdba74', backgroundColor: '#fdba74', tension: 0.3 }
-                        ] 
-                    }, 
-                    options: lineOpts('qty')
-                }
-            );
+            charts.compSales = new Chart(document.getElementById('compareSalesChart').getContext('2d'), { type: 'line', data: { labels: labels, datasets: [ { label: 'Period A', data: dataSA, borderColor: '#3b82f6', backgroundColor: '#3b82f6', tension: 0.3 }, { label: 'Period B', data: dataSB, borderColor: '#f97316', backgroundColor: '#f97316', tension: 0.3 } ] }, options: lineOpts('sales') });
+            charts.compQty = new Chart(document.getElementById('compareQtyChart').getContext('2d'), { type: 'line', data: { labels: labels, datasets: [ { label: 'Period A', data: dataQA, borderColor: '#60a5fa', backgroundColor: '#60a5fa', tension: 0.3 }, { label: 'Period B', data: dataQB, borderColor: '#fdba74', backgroundColor: '#fdba74', tension: 0.3 } ] }, options: lineOpts('qty') });
         };
 
+        // --- COMPARE YEAR (FIXED) ---
         window.runCompareYear = async () => {
             const yA = document.getElementById('compYearA').value;
             const yB = document.getElementById('compYearB').value;
-            if (!yA || !yB) return alert("Please input both years (YYYY).");
+            if (!yA || !yB) return alert("Please select both years.");
 
             const sA = `${yA}-01-01`;
             const eA = `${yA}-12-31`;
@@ -660,10 +574,7 @@
             const dA = await fetchData(sA, eA);
             const dB = await fetchData(sB, eB);
 
-            const calcTotal = d => d.reduce(
-                (a,r)=>({s:a.s+(Number(r.total_amount)||0), q:a.q+(Number(r.quantity)||0)}),
-                {s:0,q:0}
-            );
+            const calcTotal = d => d.reduce((a,r)=>({s:a.s+(Number(r.total_amount)||0), q:a.q+(Number(r.quantity)||0)}), {s:0,q:0});
             const rA = calcTotal(dA);
             const rB = calcTotal(dB);
 
@@ -688,13 +599,8 @@
 
             const mapA = mapMonthly(dA);
             const mapB = mapMonthly(dB);
-
             const monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-            const dataSA = [];
-            const dataSB = [];
-            const dataQA = [];
-            const dataQB = [];
+            const dataSA = [], dataSB = [], dataQA = [], dataQB = [];
 
             for (let m = 1; m <= 12; m++) {
                 const mm = String(m).padStart(2, '0');
@@ -710,65 +616,16 @@
             if (charts.compYearQty) charts.compYearQty.destroy();
 
             const lineOpts = (type) => ({ 
-                responsive: true, 
-                maintainAspectRatio: false, 
+                responsive: true, maintainAspectRatio: false, 
                 interaction: { mode: 'index', intersect: false },
-                plugins: { 
-                    legend: { position: 'top' }, 
-                    datalabels: { 
-                        display: true,
-                        align: 'end',
-                        anchor: 'end',
-                        color: (ctx) => ctx.datasetIndex === 0 ? '#3b82f6' : '#f97316',
-                        font: { size: 10, weight: 'bold' },
-                        formatter: (val) => {
-                            if (val === 0) return '';
-                            if (type === 'sales')
-                                return new Intl.NumberFormat('en-US', {
-                                    style:'currency',
-                                    currency:'THB',
-                                    maximumFractionDigits:0
-                                }).format(val);
-                            return new Intl.NumberFormat('en-US').format(val) + ' Sheets';
-                        }
-                    } 
-                },
-                scales: { y: { beginAtZero: true } }
+                plugins: { legend: { position: 'top' }, datalabels: { display: true, align: 'end', anchor: 'end', color: (ctx) => ctx.datasetIndex === 0 ? '#3b82f6' : '#f97316', font: { size: 10, weight: 'bold' }, formatter: (val) => { if (val === 0) return ''; if (type === 'sales') return new Intl.NumberFormat('en-US', {style:'currency', currency:'THB', maximumFractionDigits:0}).format(val); return new Intl.NumberFormat('en-US').format(val) + ' Sheets'; } } }, scales: { y: { beginAtZero: true } }
             });
 
-            charts.compYearSales = new Chart(
-                document.getElementById('compareYearSalesChart').getContext('2d'),
-                {
-                    type: 'line',
-                    data: {
-                        labels: monthLabels,
-                        datasets: [
-                            { label: `Year ${yA}`, data: dataSA, borderColor: '#3b82f6', backgroundColor: '#3b82f6', tension: 0.3 },
-                            { label: `Year ${yB}`, data: dataSB, borderColor: '#f97316', backgroundColor: '#f97316', tension: 0.3 }
-                        ]
-                    },
-                    options: lineOpts('sales')
-                }
-            );
-
-            charts.compYearQty = new Chart(
-                document.getElementById('compareYearQtyChart').getContext('2d'),
-                {
-                    type: 'line',
-                    data: {
-                        labels: monthLabels,
-                        datasets: [
-                            { label: `Year ${yA}`, data: dataQA, borderColor: '#60a5fa', backgroundColor: '#60a5fa', tension: 0.3 },
-                            { label: `Year ${yB}`, data: dataQB, borderColor: '#fdba74', backgroundColor: '#fdba74', tension: 0.3 }
-                        ]
-                    },
-                    options: lineOpts('qty')
-                }
-            );
+            charts.compYearSales = new Chart(document.getElementById('compareYearSalesChart').getContext('2d'), { type: 'line', data: { labels: monthLabels, datasets: [ { label: `Year ${yA}`, data: dataSA, borderColor: '#3b82f6', backgroundColor: '#3b82f6', tension: 0.3 }, { label: `Year ${yB}`, data: dataSB, borderColor: '#f97316', backgroundColor: '#f97316', tension: 0.3 } ] }, options: lineOpts('sales') });
+            charts.compYearQty = new Chart(document.getElementById('compareYearQtyChart').getContext('2d'), { type: 'line', data: { labels: monthLabels, datasets: [ { label: `Year ${yA}`, data: dataQA, borderColor: '#60a5fa', backgroundColor: '#60a5fa', tension: 0.3 }, { label: `Year ${yB}`, data: dataQB, borderColor: '#fdba74', backgroundColor: '#fdba74', tension: 0.3 } ] }, options: lineOpts('qty') });
         };
 
-
-        // --- P&L (UPDATED RENT FORMULA) ---
+        // --- P&L ---
         async function loadPnLMonth() {
             const m = document.getElementById('pnlMonth').value; if(!m) return;
             const [y, mo] = m.split('-'); const data = await fetchData(`${y}-${mo}-01`, new Date(y, mo, 0).toISOString().split('T')[0]);
@@ -799,10 +656,7 @@
                     total += d.s; const setting = costs[br] || {rent:0, gp:0};
                     const gpDed = d.s * (setting.gp / 100);
                     const profit = d.s - setting.rent - gpDed;
-
-                    // FIXED: Removed formula display from Rent column as requested
                     const gpDedDisplay = gpDed > 0 ? ` <span class="text-xs text-red-500 ml-1">(-${cur.format(gpDed)})</span>` : '';
-
                     rows += `<tr class="border-b hover:bg-slate-50 text-sm"><td class="py-2 px-4">${br}</td><td class="text-right font-mono">${cur.format(d.s)}</td><td class="text-right font-mono text-blue-600">${num.format(d.q)}</td><td class="text-right text-slate-500">${cur.format(setting.rent)}</td><td class="text-right text-slate-500">${setting.gp}%${gpDedDisplay}</td><td class="text-right font-bold font-mono ${profit>=0?'text-emerald-600':'text-red-600'} px-4">${cur.format(profit)}</td></tr>`;
                 });
                 container.innerHTML += `<div class="bg-white rounded-xl border border-${color}-200 mb-6 overflow-hidden"><div class="bg-${color}-50 px-6 py-3 font-bold text-${color}-800"><span>${grp} Group</span></div><table class="w-full"><thead><tr class="text-xs bg-slate-50 text-slate-500"><th class="text-left px-4 py-2">Branch</th><th class="text-right px-4">Sales</th><th class="text-right px-4">Qty</th><th class="text-right px-4">Rent</th><th class="text-right px-4">GP% (Deduction)</th><th class="text-right px-4">Net</th></tr></thead><tbody>${rows}</tbody></table></div>`;
@@ -833,11 +687,10 @@
             link.click();
         };
 
-        // --- NEW: SERVICE PLANNING (Real-time Supabase) ---
+        // --- NEW: SERVICE PLANNING ---
         async function loadServicePlanning() {
             showLoading(true, "Analyzing Stock...");
             
-            // 1. Calculate Average Sales from GLOBAL_DATA (sales_records)
             const start = new Date(document.getElementById('dashStart').value);
             const end = new Date(document.getElementById('dashEnd').value);
             let countWD = 0, countWE = 0;
@@ -849,7 +702,6 @@
             if(countWE === 0) countWE = 1;
 
             const runRates = {}; 
-            // Helper to get Branch ID from name
             const getBranchId = (name) => {
                 const match = (name || "").match(/^\d+/);
                 return match ? parseInt(match[0]) : null;
@@ -870,21 +722,18 @@
                 else runRates[brId][type].wd += Number(r.quantity);
             });
 
-            // 2. Fetch Stock from Supabase (current_stocks) using branch_id
             const { data: stockRows, error } = await supabase.from(STOCK_TABLE).select('*');
-            
             if (error) {
                 showLoading(false);
                 return alert("Error fetching stock: " + error.message);
             }
 
-            const stockData = {}; // BranchID -> {name, INK, PAPER, INK_CODE, PAPER_CODE}
+            const stockData = {};
             stockRows.forEach(row => {
                 const brId = row.branch_id; 
                 if (!brId) return;
 
-                const prodRaw = row.product_name || "";
-                const prod = prodRaw.toUpperCase();
+                const prod = (row.product_name || "").toUpperCase();
                 const qty = Number(row.quantity || 0);
                 const isInk = prod.includes("RIBBON") || prod.includes("INK");
                 const type = isInk ? "INK" : "PAPER";
@@ -900,143 +749,110 @@
                 }
 
                 stockData[brId][type] += qty;
-
-                // เก็บรหัสสินค้า (product_name)
-                if (type === "INK" && !stockData[brId].INK_CODE) {
-                    stockData[brId].INK_CODE = prodRaw;
-                }
-                if (type === "PAPER" && !stockData[brId].PAPER_CODE) {
-                    stockData[brId].PAPER_CODE = prodRaw;
-                }
+                if (type === "INK" && !stockData[brId].INK_CODE) stockData[brId].INK_CODE = row.product_name;
+                if (type === "PAPER" && !stockData[brId].PAPER_CODE) stockData[brId].PAPER_CODE = row.product_name;
             });
 
-            // 📌 ต้องมี 2 บรรทัดนี้ + ปิดฟังก์ชัน
             renderPlanningTable(runRates, stockData, countWD, countWE);
             showLoading(false);
         }
 
-function renderPlanningTable(runRates, stockData, daysWD, daysWE) {
-    const container = document.getElementById('planningContainer');
-    container.innerHTML = '';
+        function renderPlanningTable(runRates, stockData, daysWD, daysWE) {
+            const container = document.getElementById('planningContainer');
+            container.innerHTML = '';
 
-    // รวมทุก branch id ที่มีทั้งจาก runRates และ stockData
-    const allIds = new Set([
-        ...Object.keys(runRates),
-        ...Object.keys(stockData)
-    ]);
-    const num = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
+            const allIds = new Set([...Object.keys(runRates), ...Object.keys(stockData)]);
+            const num = new Intl.NumberFormat('en-US', {maximumFractionDigits: 1});
+            const groupedData = {'Moshi': [], 'B2S': [], 'Wanyen': []};
 
-    // --- Group by Store Type ---
-    const groupedData = { 'Moshi': [], 'B2S': [], 'Wanyen': [] };
+            allIds.forEach(id => {
+                const name = stockData[id]?.name || `Branch ${id}`;
+                const group = getGroup(name);
+                if (groupedData[group]) groupedData[group].push({ id, name });
+            });
 
-    allIds.forEach(id => {
-        const name = stockData[id]?.name || `Branch ${id}`;
-        const group = getGroup(name);  // กลุ่มตามชื่อสาขา
-        if (groupedData[group]) groupedData[group].push({ id, name });
-    });
+            ['Moshi', 'B2S', 'Wanyen'].forEach(grp => {
+                const items = groupedData[grp];
+                if (!items || items.length === 0) return;
 
-    ['Moshi', 'B2S', 'Wanyen'].forEach(grp => {
-        const items = groupedData[grp];
-        if (!items || items.length === 0) return;
+                const color = grp==='Moshi'?'pink':(grp==='B2S'?'blue':'orange');
+                const tableData = [];
 
-        const color = grp === 'Moshi' ? 'pink' : (grp === 'B2S' ? 'blue' : 'orange');
-        const tableData = [];
+                items.forEach(item => {
+                    const id = item.id;
+                    const stock = stockData[id] || { INK: 0, PAPER: 0, INK_CODE: "", PAPER_CODE: "" };
+                    const sales = runRates[id] || { INK: {wd:0, we:0}, PAPER: {wd:0, we:0} };
 
-        items.forEach(item => {
-            const id = item.id;
-            const stock = stockData[id] || { INK: 0, PAPER: 0, INK_CODE: "", PAPER_CODE: "" };
-            const sales = runRates[id] || { INK: { wd: 0, we: 0 }, PAPER: { wd: 0, we: 0 } };
+                    const calc = (type) => {
+                        const s = sales[type];
+                        const avgWD = s.wd / daysWD;
+                        const avgWE = s.we / daysWE;
+                        const weightedAvg = ((avgWD * 5) + (avgWE * 2)) / 7;
+                        const currentStock = stock[type];
+                        const code = type==='INK' ? stock.INK_CODE : stock.PAPER_CODE;
+                        const daysLeft = weightedAvg > 0 ? (currentStock / weightedAvg) : 999;
+                        return { type, code, stock: currentStock, avgWD, avgWE, daysLeft };
+                    };
 
-            const calc = (type) => {
-                const s = sales[type];
-                const avgWD = s.wd / daysWD;
-                const avgWE = s.we / daysWE;
+                    tableData.push({ branch: item.name, ...calc('PAPER') });
+                    tableData.push({ branch: item.name, ...calc('INK') });
+                });
 
-                const weightedAvg = ((avgWD * 5) + (avgWE * 2)) / 7;
-                const currentStock = stock[type];
+                tableData.sort((a,b) => a.daysLeft - b.daysLeft);
 
-                // ใช้รหัสสินค้า ถ้ามี
-                const codeKey = type === 'INK' ? 'INK_CODE' : 'PAPER_CODE';
-                const code = stock[codeKey] || type;
+                let rows = '';
+                tableData.forEach(rowItem => {
+                    const isCrit = rowItem.daysLeft < 7;
+                    const isWarn = rowItem.daysLeft >= 7 && rowItem.daysLeft < 14;
+                    const styleClass = isCrit ? 'stock-critical' : (isWarn ? 'stock-warning' : 'stock-good');
+                    const dayText = rowItem.daysLeft > 365 ? '> 1 Year' : rowItem.daysLeft.toFixed(1) + ' Days';
 
-                const daysLeft = weightedAvg > 0 ? (currentStock / weightedAvg) : 999;
+                    rows += `
+                        <tr class="border-b hover:bg-slate-50 text-xs planning-row">
+                            <td class="px-4 py-2 font-medium text-slate-700">${rowItem.branch}</td>
+                            <td class="px-4 py-2 text-slate-500">${rowItem.code || rowItem.type}</td>
+                            <td class="px-4 py-2 text-right font-mono text-slate-800">${num.format(rowItem.stock)}</td>
+                            <td class="px-4 py-2 text-right font-mono text-blue-600">${num.format(rowItem.avgWD)}</td>
+                            <td class="px-4 py-2 text-right font-mono text-orange-600">${num.format(rowItem.avgWE)}</td>
+                            <td class="px-4 py-2 text-center font-mono text-xs rounded border ${styleClass}">${dayText}</td>
+                        </tr>
+                    `;
+                });
 
-                return { type, code, stock: currentStock, avgWD, avgWE, daysLeft };
-            };
+                container.innerHTML += `
+                    <div class="bg-white rounded-xl border border-${color}-200 overflow-hidden shadow-sm planning-card">
+                        <div class="bg-${color}-50 px-4 py-2 font-bold text-${color}-800 text-sm border-b border-${color}-100 flex justify-between">
+                            <span>${grp}</span>
+                            <span class="text-[10px] bg-white px-2 rounded border border-${color}-200 opacity-70">Sorted by Days Left</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-white text-[10px] uppercase text-slate-400 border-b">
+                                    <tr>
+                                        <th class="text-left px-4 py-2">Branch</th>
+                                        <th class="text-left px-4 py-2">Type</th>
+                                        <th class="text-right px-4">Stock</th>
+                                        <th class="text-right px-4">Avg (M-F)</th>
+                                        <th class="text-right px-4">Avg (S-S)</th>
+                                        <th class="text-center px-4">Est. Time Left</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${rows}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            });
+        }
 
-            tableData.push({ branch: item.name, ...calc('PAPER') });
-            tableData.push({ branch: item.name, ...calc('INK') });
-        });
-
-        // เรียงจากสาขาที่เหลือวันน้อยสุด
-        tableData.sort((a, b) => a.daysLeft - b.daysLeft);
-
-        let rows = '';
-        tableData.forEach(rowItem => {
-            const isCrit = rowItem.daysLeft < 7;
-            const isWarn = rowItem.daysLeft >= 7 && rowItem.daysLeft < 14;
-            const styleClass =
-                isCrit ? 'stock-critical' :
-                isWarn ? 'stock-warning' :
-                'stock-good';
-
-            const dayText =
-                rowItem.daysLeft > 365
-                    ? '> 1 Year'
-                    : rowItem.daysLeft.toFixed(1) + ' Days';
-
-            rows += `
-                <tr class="border-b hover:bg-slate-50 text-xs planning-row">
-                    <td class="px-4 py-2 font-medium text-slate-700">${rowItem.branch}</td>
-                    <td class="px-4 py-2 text-slate-500">
-                        ${rowItem.code || rowItem.type}
-                    </td>
-                    <td class="px-4 py-2 text-right font-mono text-slate-800">${num.format(rowItem.stock)}</td>
-                    <td class="px-4 py-2 text-right font-mono text-blue-600">${num.format(rowItem.avgWD)}</td>
-                    <td class="px-4 py-2 text-right font-mono text-orange-600">${num.format(rowItem.avgWE)}</td>
-                    <td class="px-4 py-2 text-center font-mono text-xs rounded border ${styleClass}">${dayText}</td>
-                </tr>
-            `;
-        });
-
-        container.innerHTML += `
-            <div class="bg-white rounded-xl border border-${color}-200 overflow-hidden shadow-sm planning-card">
-                <div class="bg-${color}-50 px-4 py-2 font-bold text-${color}-800 text-sm border-b border-${color}-100 flex justify-between">
-                    <span>${grp}</span>
-                    <span class="text-[10px] bg-white px-2 rounded border border-${color}-200 opacity-70">Sorted by Days Left</span>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full">
-                        <thead class="bg-white text-[10px] uppercase text-slate-400 border-b">
-                            <tr>
-                                <th class="text-left px-4 py-2">Branch</th>
-                                <th class="text-left px-4 py-2">Type</th>
-                                <th class="text-right px-4">Stock</th>
-                                <th class="text-right px-4">Avg (M-F)</th>
-                                <th class="text-right px-4">Avg (S-S)</th>
-                                <th class="text-center px-4">Est. Time Left</th>
-                            </tr>
-                        </thead>
-                        <tbody>${rows}</tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-    });
-}
-
-
-        // NEW: Search Filter for Planning
         window.filterPlanningTable = () => {
             const input = document.getElementById("planningSearch").value.toUpperCase();
             const cards = document.querySelectorAll(".planning-card");
-            
             cards.forEach(card => {
                 const rows = card.querySelectorAll(".planning-row");
                 let hasVisibleRow = false;
                 rows.forEach(row => {
-                    const text = row.innerText.toUpperCase();
-                    if (text.indexOf(input) > -1) {
+                    if (row.innerText.toUpperCase().indexOf(input) > -1) {
                         row.style.display = "";
                         hasVisibleRow = true;
                     } else {
@@ -1076,11 +892,9 @@ function renderPlanningTable(runRates, stockData, daysWD, daysWE) {
         
         function setupEventListeners() {
              document.getElementById('globalImportBtn').onclick=()=>document.getElementById('globalCsvInput').click();
-             // UPDATE: Transform with branch_id
              document.getElementById('globalCsvInput').onchange=async(e)=>{ const files=e.target.files; if(!files.length) return; showLoading(true); for(let i=0;i<files.length;i++){ const f=files[i]; const {data:exists}=await supabase.from(LOG_TABLE).select('*').eq('filename',f.name).single(); if(exists){alert("File exists!");continue;} await new Promise(r=>Papa.parse(f,{header:false,skipEmptyLines:true,complete:async(res)=>{ const rows=res.data.map(transform).filter(x=>x); const batch=500; for(let j=0;j<Math.ceil(rows.length/batch);j++) await supabase.from(TABLE).insert(rows.slice(j*batch,(j+1)*batch)); await supabase.from(LOG_TABLE).insert({filename:f.name, total_rows:rows.length}); r(); }})); } showLoading(false); alert("Done"); fetchDataAndRender(); };
              document.getElementById('deleteByFileBtn').onclick=()=>document.getElementById('deleteFileInput').click();
              document.getElementById('deleteFileInput').onchange=async(e)=>{ const f=e.target.files[0]; if(!f||!confirm("Delete?")) return; showLoading(true); Papa.parse(f, {header:false, skipEmptyLines:true, complete:async(res)=>{ const rows=res.data.map(transform).filter(x=>x); const batch=50; for(let j=0;j<Math.ceil(rows.length/batch);j++) { const chunk=rows.slice(j*batch,(j+1)*batch); await Promise.all(chunk.map(r=>supabase.from(TABLE).delete().match({transaction_date:r.transaction_date, transaction_time:r.transaction_time, branch_name:r.branch_name, total_amount:r.total_amount}))); } await supabase.from(LOG_TABLE).delete().eq('filename',f.name); showLoading(false); alert("Deleted"); fetchDataAndRender(); }}); };
-             // UPDATE: Passcode Reset
              document.getElementById('globalResetBtn').onclick=async()=>{ 
                  const pass = prompt("Enter passcode to reset DB:");
                  if(pass === "001") {
@@ -1089,7 +903,6 @@ function renderPlanningTable(runRates, stockData, daysWD, daysWE) {
              };
         }
         
-        // UPDATE: Transform logic to extract branch_id
         function transform(row) { 
             if(row.length<11) return null; 
             const [d,t]=(row[1]||"").trim().split(" "); if(!d) return null; 
@@ -1098,7 +911,6 @@ function renderPlanningTable(runRates, stockData, daysWD, daysWE) {
             const iso=`${y}-${ds[1].padStart(2,'0')}-${ds[0].padStart(2,'0')}`; 
             let time=t||"00:00:00"; time=time.split(':').map(x=>x.padStart(2,'0')).join(':'); 
             const branchName = (row[14]||"").trim();
-            // Extract ID
             const match = branchName.match(/^\d+/);
             const brId = match ? parseInt(match[0]) : null;
 
@@ -1112,7 +924,7 @@ function renderPlanningTable(runRates, stockData, daysWD, daysWE) {
                 total_amount: parseFloat((row[10]||"0").replace(/,/g, "")), 
                 payment_type: (row[11]||"").trim(), 
                 branch_name: branchName,
-                branch_id: brId // New Column
+                branch_id: brId 
             }; 
         }
     </script>
