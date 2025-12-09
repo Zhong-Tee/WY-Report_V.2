@@ -896,11 +896,16 @@ async function fetchData(s, e) {
             if(countWD === 0) countWD = 1;
             if(countWE === 0) countWE = 1;
 
-            // 2. Calculate Usage Rate (Sales Records) -> Group by ID -> Group by Product
-            // Structure: { branchId: { productName: { wd: 0, we: 0 } } }
-            const salesStats = {}; 
+            // 1. Fetch Sales Data Specifically for Planning (Fix Point 1)
+            const planningSalesData = await fetchData(startStr, endStr);
+
+            // 2. Process Sales Data
+            // specificProductSales: { branchId: { productName: { wd: 0, we: 0 } } }
+            // branchTotalSales: { branchId: { wd: 0, we: 0 } }
+            const specificProductSales = {}; 
+            const branchTotalSales = {};
             
-            GLOBAL_DATA.forEach(r => {
+            planningSalesData.forEach(r => {
                 // Usage Extraction: Use ID strictly from regex match of branch_name
                 const match = (r.branch_name || "").match(/^\d+/);
                 const brId = match ? parseInt(match[0]) : null;
@@ -911,38 +916,54 @@ async function fetchData(s, e) {
 
                 const day = new Date(r.transaction_date).getUTCDay(); 
                 const isWE = (day === 0 || day === 6);
+                const qty = Number(r.quantity);
                 
-                if (!salesStats[brId]) salesStats[brId] = {};
-                if (!salesStats[brId][prodName]) salesStats[brId][prodName] = { wd:0, we:0 };
+                // Accumulate Specific Product Sales
+                if (!specificProductSales[brId]) specificProductSales[brId] = {};
+                if (!specificProductSales[brId][prodName]) specificProductSales[brId][prodName] = { wd:0, we:0 };
                 
-                if (isWE) salesStats[brId][prodName].we += Number(r.quantity);
-                else salesStats[brId][prodName].wd += Number(r.quantity);
+                if (isWE) specificProductSales[brId][prodName].we += qty;
+                else specificProductSales[brId][prodName].wd += qty;
+
+                // Accumulate Total Branch Sales
+                if (!branchTotalSales[brId]) branchTotalSales[brId] = { wd: 0, we: 0 };
+                if (isWE) branchTotalSales[brId].we += qty;
+                else branchTotalSales[brId].wd += qty;
             });
 
-            // 3. Fetch Stock -> Group by ID -> Group by Product
-            // Structure: { branchId: { productName: totalQty } }
+            // 3. Fetch Stock
             const { data: stockRows, error } = await supabase.from(STOCK_TABLE).select('*');
             if (error) { showLoading(false); return alert("Error fetching stock: " + error.message); }
 
-            const stockStats = {};
+            // Group stock by branch to count Inks later
+            // stockGrouping: { branchId: { items: [ { name, qty, type } ], inkCount: 0 } }
+            const stockGrouping = {};
+
             stockRows.forEach(row => {
                 const brId = row.branch_id; 
                 if (!brId) return; // Constraint: Ignore if no ID
 
                 const prodName = (row.product_name || "").trim();
                 const qty = Number(row.quantity || 0);
+                const isInk = prodName.toUpperCase().includes("RIBBON") || prodName.toUpperCase().includes("INK");
                 
-                if (!stockStats[brId]) stockStats[brId] = {};
+                if (!stockGrouping[brId]) stockGrouping[brId] = { items: [], inkCount: 0 };
                 
-                // Sum quantity for specific product
-                stockStats[brId][prodName] = (stockStats[brId][prodName] || 0) + qty;
+                // Add item to list (aggregating same product if duplicate rows exist)
+                let existingItem = stockGrouping[brId].items.find(i => i.name === prodName);
+                if (existingItem) {
+                    existingItem.qty += qty;
+                } else {
+                    stockGrouping[brId].items.push({ name: prodName, qty: qty, isInk: isInk });
+                    if(isInk) stockGrouping[brId].inkCount++;
+                }
             });
 
-            renderPlanningTable(salesStats, stockStats, countWD, countWE);
+            renderPlanningTable(specificProductSales, branchTotalSales, stockGrouping, countWD, countWE);
             showLoading(false);
         }
 
-        function renderPlanningTable(salesStats, stockStats, daysWD, daysWE) {
+        function renderPlanningTable(specificSales, totalSales, stockData, daysWD, daysWE) {
             const container = document.getElementById('planningContainer'); container.innerHTML = '';
             
             // Constraint 1: Use Master List (BRANCH_COSTS_BY_ID) as iteration source
@@ -950,7 +971,7 @@ async function fetchData(s, e) {
 
             Object.keys(BRANCH_COSTS_BY_ID).forEach(idStr => {
                 const id = parseInt(idStr);
-                const master = BRANCH_COSTS_BY_ID[id]; // { name, zone, rent, gp }
+                const master = BRANCH_COSTS_BY_ID[id]; 
                 if(!master || !master.name) return;
 
                 const group = getGroup(master.name);
@@ -969,28 +990,41 @@ async function fetchData(s, e) {
                 items.forEach(item => {
                     const id = item.id; 
                     
-                    // Check if this branch has any stock
-                    const branchStock = stockStats[id];
-                    if(!branchStock) return; // No stock, skip (or show empty? Requirement implies showing rows for items in stock)
+                    // Check if this branch has any stock data
+                    const branchStock = stockData[id];
+                    if(!branchStock || branchStock.items.length === 0) return; 
 
                     // Iterate through each product in stock
-                    Object.entries(branchStock).forEach(([prodName, currentStock]) => {
-                        // Get sales for this specific product
-                        const sales = (salesStats[id] && salesStats[id][prodName]) ? salesStats[id][prodName] : { wd:0, we:0 };
+                    branchStock.items.forEach(stockItem => {
+                        let avgWD = 0, avgWE = 0;
+
+                        if (stockItem.isInk) {
+                            // Fix Point 2: Ink Logic
+                            // Use Total Branch Sales / Ink Count
+                            const totalWD = totalSales[id]?.wd || 0;
+                            const totalWE = totalSales[id]?.we || 0;
+                            const inkCount = branchStock.inkCount || 1; // Avoid division by zero
+
+                            avgWD = (totalWD / inkCount) / daysWD;
+                            avgWE = (totalWE / inkCount) / daysWE;
+
+                        } else {
+                            // Paper Logic: Specific Product Sales
+                            const sales = (specificSales[id] && specificSales[id][stockItem.name]) ? specificSales[id][stockItem.name] : { wd:0, we:0 };
+                            avgWD = sales.wd / daysWD;
+                            avgWE = sales.we / daysWE;
+                        }
                         
-                        // Calculate Avg Usage
-                        const avgWD = sales.wd / daysWD;
-                        const avgWE = sales.we / daysWE;
                         const weightedAvg = ((avgWD * 5) + (avgWE * 2)) / 7;
                         
                         // Calculate Days Left
-                        const daysLeft = weightedAvg > 0 ? (currentStock / weightedAvg) : 999;
+                        const daysLeft = weightedAvg > 0 ? (stockItem.qty / weightedAvg) : 999;
 
                         tableData.push({
                             branch: item.name,
                             zone: item.zone || '-',
-                            product: prodName,
-                            stock: currentStock,
+                            product: stockItem.name,
+                            stock: stockItem.qty,
                             avgWD,
                             avgWE,
                             daysLeft
@@ -1010,7 +1044,6 @@ async function fetchData(s, e) {
                     const dayText = rowItem.daysLeft > 365 ? '> 1 Year' : rowItem.daysLeft.toFixed(1) + ' Days';
                     const zoneColor = stringToColor(rowItem.zone);
 
-                    // Added fixed widths to columns for alignment across tables (Requirement 4)
                     rows += `
                     <tr class="border-b hover:bg-slate-50 text-xs planning-row ${filterClass}">
                         <td class="px-4 py-2 text-center w-12"><input type="checkbox" class="row-checkbox rounded border-slate-300"></td>
@@ -1024,7 +1057,6 @@ async function fetchData(s, e) {
                     </tr>`;
                 });
 
-                // Added fixed widths to headers to match cells (Requirement 4)
                 container.innerHTML += `
                 <div class="bg-white rounded-xl border border-${color}-200 overflow-hidden shadow-sm planning-card mb-6">
                     <div class="bg-${color}-50 px-4 py-2 font-bold text-${color}-800 text-sm border-b border-${color}-100 flex justify-between">
