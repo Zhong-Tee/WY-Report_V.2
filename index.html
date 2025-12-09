@@ -572,7 +572,12 @@ async function fetchData(s, e) {
                     BRANCH_COSTS_CACHE[c.branch_name] = {rent: c.rent, gp: c.gp_percent, zone: c.zone};
                     // Map by ID (for precise matching in Planning)
                     if(c.branch_id) {
-                        BRANCH_COSTS_BY_ID[c.branch_id] = {rent: c.rent, gp: c.gp_percent, zone: c.zone};
+                        BRANCH_COSTS_BY_ID[c.branch_id] = {
+                            name: c.branch_name, // Store Name here for Master Lookup
+                            rent: c.rent, 
+                            gp: c.gp_percent, 
+                            zone: c.zone
+                        };
                     }
                 }); 
             }
@@ -866,6 +871,7 @@ async function fetchData(s, e) {
         async function loadServicePlanning() {
             showLoading(true, "Analyzing Stock...");
             
+            // 1. Calculate WD/WE counts in the selected range
             const start = new Date(document.getElementById('dashStart').value);
             const end = new Date(document.getElementById('dashEnd').value);
             let countWD = 0, countWE = 0;
@@ -877,14 +883,13 @@ async function fetchData(s, e) {
             if(countWD === 0) countWD = 1;
             if(countWE === 0) countWE = 1;
 
+            // 2. Calculate Usage Rate (Sales Records) -> Group by ID
             const runRates = {}; 
-            const getBranchId = (name) => {
-                const match = (name || "").match(/^\d+/);
-                return match ? parseInt(match[0]) : null;
-            };
-
+            
             GLOBAL_DATA.forEach(r => {
-                const brId = getBranchId(r.branch_name);
+                // Usage Extraction: Use ID strictly from regex match of branch_name
+                const match = (r.branch_name || "").match(/^\d+/);
+                const brId = match ? parseInt(match[0]) : null;
                 if(!brId) return;
 
                 const isInk = (r.product || "").toUpperCase().includes("RIBBON");
@@ -899,25 +904,33 @@ async function fetchData(s, e) {
                 else runRates[brId][type].wd += Number(r.quantity);
             });
 
+            // 3. Fetch Stock -> Group by ID
             const { data: stockRows, error } = await supabase.from(STOCK_TABLE).select('*');
             if (error) { showLoading(false); return alert("Error fetching stock: " + error.message); }
 
             const stockData = {};
             stockRows.forEach(row => {
                 const brId = row.branch_id; 
-                if (!brId) return;
+                if (!brId) return; // Constraint 2: Ignore if no ID
 
                 const prod = (row.product_name || "").toUpperCase();
                 const qty = Number(row.quantity || 0);
+                
+                // Constraint 2: Categorization Logic (Ribbon/Ink = Ink, else Paper)
                 const isInk = prod.includes("RIBBON") || prod.includes("INK");
                 const type = isInk ? "INK" : "PAPER";
 
                 if (!stockData[brId]) {
-                    stockData[brId] = { name: row.branch_name, INK: 0, PAPER: 0, INK_CODE: "", PAPER_CODE: "" };
+                    stockData[brId] = { INK: 0, PAPER: 0, INK_CODE: "-", PAPER_CODE: "-" };
                 }
+                
+                // Constraint 2: Sum quantity bucket by bucket
                 stockData[brId][type] += qty;
-                if (type === "INK" && !stockData[brId].INK_CODE) stockData[brId].INK_CODE = row.product_name;
-                if (type === "PAPER" && !stockData[brId].PAPER_CODE) stockData[brId].PAPER_CODE = row.product_name;
+
+                // Save latest product code for display
+                if (type === "INK") stockData[brId].INK_CODE = row.product_name;
+                if (type === "PAPER" && stockData[brId].PAPER_CODE === "-") stockData[brId].PAPER_CODE = row.product_name;
+                else if (type === "PAPER") stockData[brId].PAPER_CODE = row.product_name; // Keep updating
             });
 
             renderPlanningTable(runRates, stockData, countWD, countWE);
@@ -926,15 +939,20 @@ async function fetchData(s, e) {
 
         function renderPlanningTable(runRates, stockData, daysWD, daysWE) {
             const container = document.getElementById('planningContainer'); container.innerHTML = '';
-            const allIds = new Set([...Object.keys(runRates), ...Object.keys(stockData)]);
-            const num = new Intl.NumberFormat('en-US', {maximumFractionDigits: 1});
+            
+            // Constraint 1: Use Master List (BRANCH_COSTS_BY_ID) as iteration source
             const groupedData = {'Moshi': [], 'B2S': [], 'Wanyen': []};
 
-            allIds.forEach(id => {
-                const name = stockData[id]?.name || `Branch ${id}`;
-                const group = getGroup(name);
-                if (groupedData[group]) groupedData[group].push({ id, name });
+            Object.keys(BRANCH_COSTS_BY_ID).forEach(idStr => {
+                const id = parseInt(idStr);
+                const master = BRANCH_COSTS_BY_ID[id]; // { name, zone, rent, gp }
+                if(!master || !master.name) return;
+
+                const group = getGroup(master.name);
+                if (groupedData[group]) groupedData[group].push({ id, name: master.name, zone: master.zone });
             });
+
+            const num = new Intl.NumberFormat('en-US', {maximumFractionDigits: 1});
 
             ['Moshi', 'B2S', 'Wanyen'].forEach(grp => {
                 const items = groupedData[grp];
@@ -944,42 +962,46 @@ async function fetchData(s, e) {
                 const tableData = [];
 
                 items.forEach(item => {
-                    const id = item.id; // This is the numeric branch ID
-                    const stock = stockData[id] || { INK: 0, PAPER: 0, INK_CODE: "", PAPER_CODE: "" };
+                    const id = item.id; 
+                    // Match with Stock & Sales using ID
+                    const stock = stockData[id] || { INK: 0, PAPER: 0, INK_CODE: "-", PAPER_CODE: "-" };
                     const sales = runRates[id] || { INK: {wd:0, we:0}, PAPER: {wd:0, we:0} };
 
                     const calc = (type) => {
                         const s = sales[type];
-                        // Avg (M-F): Mon-Fri
+                        // Avg (M-F)
                         const avgWD = s.wd / daysWD;
-                        // Avg (S-S): Sat-Sun
+                        // Avg (S-S)
                         const avgWE = s.we / daysWE;
                         
                         const weightedAvg = ((avgWD * 5) + (avgWE * 2)) / 7;
                         const currentStock = stock[type];
                         const code = type==='INK' ? stock.INK_CODE : stock.PAPER_CODE;
+                        
+                        // Constraint 4: Days Left = Stock / Usage
                         const daysLeft = weightedAvg > 0 ? (currentStock / weightedAvg) : 999;
+                        
                         return { type, code, stock: currentStock, avgWD, avgWE, daysLeft };
                     };
 
                     const paperCalc = calc('PAPER');
                     const inkCalc = calc('INK');
 
-                    inkCalc.avgWD = paperCalc.avgWD;
-                    inkCalc.avgWE = paperCalc.avgWE;
-                    const paperWeightedAvg = ((paperCalc.avgWD * 5) + (paperCalc.avgWE * 2)) / 7;
-                    inkCalc.daysLeft = paperWeightedAvg > 0 ? (inkCalc.stock / paperWeightedAvg) : 999;
-
-                    // 3. Updated for Request 3: Use ID matching for Zone
-                    let zone = '-';
-                    if(BRANCH_COSTS_BY_ID[id]) {
-                        zone = BRANCH_COSTS_BY_ID[id].zone || '-';
-                    } else if (BRANCH_COSTS_CACHE[item.name]) {
-                        zone = BRANCH_COSTS_CACHE[item.name].zone || '-'; // Fallback to name
+                    // Link Ink usage rate to Paper if Ink usage is 0 (Assumption: Prints consume both)
+                    // Or keep strictly as per data. The previous code linked them. 
+                    // Let's stick to strict data from CSV for usage to be accurate to "Sales".
+                    // However, traditionally, if you sell a print, you use both.
+                    // If sales data only logs "Paper" product, Ink usage might show 0.
+                    // Let's sync average if Ink avg is 0 but Paper avg > 0 (Safety fallback)
+                    if(inkCalc.avgWD === 0 && paperCalc.avgWD > 0) {
+                        inkCalc.avgWD = paperCalc.avgWD;
+                        inkCalc.avgWE = paperCalc.avgWE;
+                        const paperWeightedAvg = ((paperCalc.avgWD * 5) + (paperCalc.avgWE * 2)) / 7;
+                        inkCalc.daysLeft = paperWeightedAvg > 0 ? (inkCalc.stock / paperWeightedAvg) : 999;
                     }
 
-                    tableData.push({ branch: item.name, zone: zone, ...paperCalc });
-                    tableData.push({ branch: item.name, zone: zone, ...inkCalc });
+                    tableData.push({ branch: item.name, zone: item.zone || '-', ...paperCalc });
+                    tableData.push({ branch: item.name, zone: item.zone || '-', ...inkCalc });
                 });
 
                 tableData.sort((a,b) => a.daysLeft - b.daysLeft);
@@ -1097,4 +1119,3 @@ async function fetchData(s, e) {
     </script>
 </body>
 </html>
-
