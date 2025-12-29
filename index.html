@@ -278,7 +278,7 @@
         const STOCK_TABLE = 'current_stocks'; 
         const MAX_FETCH = 1000000; 
 
-        let supabase, GLOBAL_DATA = [], charts = {};
+        let supabaseClient, GLOBAL_DATA = [], charts = {};
         // 3. Cache for Branch Costs (Name) and Branch Costs (ID)
         let BRANCH_COSTS_CACHE = {};
         let BRANCH_COSTS_BY_ID = {};
@@ -1180,3 +1180,4 @@ async function fetchData(s, e) {
     </script>
 </body>
 </html>
+
